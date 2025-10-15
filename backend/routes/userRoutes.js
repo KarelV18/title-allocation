@@ -21,15 +21,16 @@ router.get('/', auth, authorize('admin'), async (req, res) => {
 
 // Get all supervisors (Available for students and admin)
 router.get('/supervisors', auth, async (req, res) => {
-    try {
-        const supervisors = await User.getAllByRole('supervisor');
-        res.json(supervisors);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching supervisors' });
-    }
+  try {
+    const supervisors = await User.getAllByRole('supervisor');
+    res.json(supervisors);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching supervisors' });
+  }
 });
 
 // Bulk upload users from CSV (Admin only)
+// Update CSV upload to validate capacity
 router.post('/bulk-upload', auth, authorize('admin'), upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -43,26 +44,54 @@ router.post('/bulk-upload', auth, authorize('admin'), upload.single('file'), asy
       .on('end', async () => {
         try {
           const users = [];
+          let totalStudentCount = 0;
+          let totalSupervisorCapacity = 0;
+
+          // First pass: count students and supervisor capacity
           for (const row of results) {
-            // Default password if not provided
+            if (row.role === 'student') totalStudentCount++;
+            if (row.role === 'supervisor') {
+              const capacity = parseInt(row.capacity) || 0;
+              totalSupervisorCapacity += capacity;
+            }
+          }
+
+          // Validate capacity constraint
+          if (totalSupervisorCapacity !== totalStudentCount) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({
+              message: `Capacity validation failed: Supervisor capacity (${totalSupervisorCapacity}) does not match student count (${totalStudentCount}). Please adjust capacities.`
+            });
+          }
+
+          // Second pass: create users
+          for (const row of results) {
             const password = row.password || 'default123';
             const user = await User.create({
               username: row.username,
               password: password,
               role: row.role,
               name: row.name,
-              email: row.email
+              email: row.email,
+              capacity: row.capacity ? parseInt(row.capacity) : 0 // Add capacity
             });
             users.push(user);
           }
-          
+
           // Clean up uploaded file
           fs.unlinkSync(req.file.path);
-          
-          res.json({ 
-            message: 'Users created successfully', 
+
+          res.json({
+            message: 'Users created successfully',
             count: users.length,
-            users: users.map(u => ({ username: u.username, role: u.role, name: u.name }))
+            totalStudentCount,
+            totalSupervisorCapacity,
+            users: users.map(u => ({
+              username: u.username,
+              role: u.role,
+              name: u.name,
+              capacity: u.capacity
+            }))
           });
         } catch (error) {
           fs.unlinkSync(req.file.path);

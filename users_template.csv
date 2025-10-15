@@ -1,5 +1,5 @@
-username,password,role,name,email
-student1,student123,student,John Doe,john@email.com
-student2,student123,student,Jane Smith,jane@email.com
-mrinal,super123,supervisor,Mrinal Sharma,m.sharma@mdx.ac.mu
-karel,super123,supervisor,Karel Veerabudren,k.veerabudren@mdx.ac.mu
+username,password,role,name,email,capacity
+student1,student123,student,John Doe,john@email.com,0
+student2,student123,student,Jane Smith,jane@email.com,0
+mrinal,super123,supervisor,Mrinal Sharma,m.sharma@mdx.ac.mu,1
+karel,super123,supervisor,Karel Veerabudren,k.veerabudren@mdx.ac.mu,1

@@ -15,6 +15,7 @@ class User {
       role: userData.role,
       name: userData.name || userData.fullName, // Handle both name and fullName
       email: userData.email,
+      capacity: userData.role === 'supervisor' ? parseInt(userData.capacity) || 0 : 0, // Supervisor Capacity
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -41,8 +42,8 @@ class User {
     }
     return await this.collection().updateOne(
       { _id: userId },
-      { 
-        $set: { 
+      {
+        $set: {
           password: hashedPassword,
           updatedAt: new Date()
         }

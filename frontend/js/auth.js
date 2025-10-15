@@ -90,8 +90,8 @@ class Auth {
         }
     }
 
-loadAdminDashboard(content) {
-    content.html(`
+    loadAdminDashboard(content) {
+        content.html(`
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="manage-titles-card">
                 <h3 class="text-lg font-semibold mb-2">Title Management</h3>
@@ -113,6 +113,10 @@ loadAdminDashboard(content) {
                 <h3 class="text-lg font-semibold mb-2">Allocation</h3>
                 <p class="text-gray-600 text-sm">Run title allocation process</p>
             </div>
+            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="supervisor-assignment-card">
+                <h3 class="text-lg font-semibold mb-2">Supervisor Assignment</h3>
+                <p class="text-gray-600 text-sm">Assign supervisors to pending allocations</p>
+            </div>
             <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="generate-report-card">
                 <h3 class="text-lg font-semibold mb-2">Reports</h3>
                 <p class="text-gray-600 text-sm">Generate allocation reports</p>
@@ -121,50 +125,56 @@ loadAdminDashboard(content) {
         <div id="admin-content" class="mt-6"></div>
     `);
 
-    // Add click handlers
-    $('#manage-titles-card').on('click', () => {
-        if (window.adminDashboard) {
-            window.adminDashboard.loadTitleManagement();
-        }
-    });
-    
-    $('#manage-users-card').on('click', () => {
-        if (window.adminDashboard) {
-            window.adminDashboard.loadUserManagement();
-        }
-    });
-    
-    $('#student-choices-card').on('click', () => {
-        if (window.adminDashboard) {
+        // Add click handlers
+        $('#manage-titles-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadTitleManagement();
+            }
+        });
+
+        $('#manage-users-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadUserManagement();
+            }
+        });
+
+        $('#student-choices-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadStudentChoices();
+            }
+        });
+
+        $('#custom-titles-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadCustomTitles();
+            }
+        });
+
+        $('#run-allocation-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.runAllocation();
+            }
+        });
+
+        $('#generate-report-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.generateReport();
+            }
+        });
+
+        $('#supervisor-assignment-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadSupervisorAssignment();
+            }
+        });
+
+        // Initialize admin dashboard
+        if (typeof AdminDashboard !== 'undefined') {
+            window.adminDashboard = new AdminDashboard();
+            // Load student choices by default for better overview
             window.adminDashboard.loadStudentChoices();
         }
-    });
-    
-    $('#custom-titles-card').on('click', () => {
-        if (window.adminDashboard) {
-            window.adminDashboard.loadCustomTitles();
-        }
-    });
-    
-    $('#run-allocation-card').on('click', () => {
-        if (window.adminDashboard) {
-            window.adminDashboard.runAllocation();
-        }
-    });
-    
-    $('#generate-report-card').on('click', () => {
-        if (window.adminDashboard) {
-            window.adminDashboard.generateReport();
-        }
-    });
-
-    // Initialize admin dashboard
-    if (typeof AdminDashboard !== 'undefined') {
-        window.adminDashboard = new AdminDashboard();
-        // Load student choices by default for better overview
-        window.adminDashboard.loadStudentChoices();
     }
-}
 
     loadSupervisorDashboard(content) {
         content.html(`

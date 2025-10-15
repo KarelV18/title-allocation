@@ -397,6 +397,190 @@ class AdminDashboard {
         }
     }
 
+    async loadSupervisorAssignment() {
+        try {
+            const response = await $.ajax({
+                url: '/api/supervisor-assignment/needs-supervisor',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            const { allocations, supervisors } = response;
+
+            let html = `
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Supervisor Assignment</h2>
+                    <div class="flex space-x-2">
+                        <button id="auto-assign-btn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                            Auto-Assign All
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-yellow-700">${allocations.length}</div>
+                        <div class="text-sm text-yellow-600">Need Supervisor</div>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-700">${supervisors.length}</div>
+                        <div class="text-sm text-blue-600">Available Supervisors</div>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-gray-700">${supervisors.reduce((sum, s) => sum + s.remaining, 0)}</div>
+                        <div class="text-sm text-gray-600">Total Remaining Capacity</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-4 text-yellow-700">Allocations Needing Supervisor</h3>
+        `;
+
+            if (allocations.length === 0) {
+                html += `
+                <div class="text-center py-8 text-gray-500">
+                    <p>No allocations need supervisor assignment.</p>
+                    <p class="mt-2">All students have been properly allocated.</p>
+                </div>
+            `;
+            } else {
+                html += `<div class="space-y-4">`;
+                allocations.forEach(allocation => {
+                    html += `
+                    <div class="border border-yellow-300 bg-yellow-50 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-semibold">${allocation.studentName}</h4>
+                                <p class="text-sm text-gray-600">ID: ${allocation.studentUsername}</p>
+                            </div>
+                            <span class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">
+                                Rank ${allocation.preferenceRank}
+                            </span>
+                        </div>
+                        <p class="text-sm mb-2"><strong>Title:</strong> ${allocation.title}</p>
+                        <p class="text-sm mb-3"><strong>Original Supervisor:</strong> ${allocation.originalSupervisorName}</p>
+                        
+                        <div class="flex items-center space-x-2">
+                            <select class="supervisor-select border rounded px-3 py-1 text-sm" data-allocation-id="${allocation._id}">
+                                <option value="">Select Supervisor</option>
+                `;
+
+                    supervisors.forEach(supervisor => {
+                        const status = supervisor.remaining > 0 ? '🟢' : '🔴';
+                        html += `<option value="${supervisor.supervisor._id}">${status} ${supervisor.supervisor.name} (${supervisor.remaining}/${supervisor.capacity})</option>`;
+                    });
+
+                    html += `
+                            </select>
+                            <button class="assign-supervisor-btn bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                                    data-allocation-id="${allocation._id}">
+                                Assign
+                            </button>
+                        </div>
+                    </div>
+                `;
+                });
+                html += `</div>`;
+            }
+
+            html += `
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold mb-4 text-blue-700">Supervisor Capacity</h3>
+                        <div class="space-y-3">
+        `;
+
+            supervisors.forEach(supervisor => {
+                const percentage = supervisor.capacity > 0 ? (supervisor.current / supervisor.capacity) * 100 : 0;
+                const color = supervisor.remaining > 0 ? 'text-green-600' : 'text-red-600';
+
+                html += `
+                <div class="border rounded-lg p-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-medium">${supervisor.supervisor.name}</span>
+                        <span class="${color} font-semibold">${supervisor.remaining} remaining</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-600 mt-1">
+                        <span>${supervisor.current}/${supervisor.capacity} students</span>
+                        <span>${Math.round(percentage)}% utilized</span>
+                    </div>
+                </div>
+            `;
+            });
+
+            html += `
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+            $('#admin-content').html(html);
+            this.attachSupervisorAssignmentEvents();
+        } catch (error) {
+            console.error('Error loading supervisor assignment:', error);
+            $('#admin-content').html('<div class="text-red-500">Error loading supervisor assignment</div>');
+        }
+    }
+
+    attachSupervisorAssignmentEvents() {
+        // Assign supervisor to specific allocation
+        $(document).on('click', '.assign-supervisor-btn', async (e) => {
+            const allocationId = $(e.target).data('allocation-id');
+            const supervisorSelect = $(`select[data-allocation-id="${allocationId}"]`);
+            const supervisorId = supervisorSelect.val();
+
+            if (!supervisorId) {
+                await SweetAlert.error('Please select a supervisor');
+                return;
+            }
+
+            try {
+                const response = await $.ajax({
+                    url: `/api/supervisor-assignment/${allocationId}/assign-supervisor`,
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    contentType: 'application/json',
+                    data: JSON.stringify({ supervisorId })
+                });
+
+                await SweetAlert.success(`Supervisor assigned: ${response.supervisorName}`);
+                this.loadSupervisorAssignment();
+            } catch (error) {
+                await SweetAlert.error('Error assigning supervisor: ' + (error.responseJSON?.message || 'Unknown error'));
+            }
+        });
+
+        // Auto-assign all
+        $(document).on('click', '#auto-assign-btn', async () => {
+            const result = await SweetAlert.confirm(
+                'Auto-Assign Supervisors?',
+                'This will automatically assign available supervisors to all pending allocations.'
+            );
+
+            if (!result.isConfirmed) return;
+
+            try {
+                const response = await $.ajax({
+                    url: '/api/supervisor-assignment/auto-assign',
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                });
+
+                await SweetAlert.success(response.message);
+                this.loadSupervisorAssignment();
+            } catch (error) {
+                await SweetAlert.error('Error during auto-assignment: ' + (error.responseJSON?.message || 'Unknown error'));
+            }
+        });
+    }
+
+
     async runAllocation() {
         const result = await SweetAlert.confirm(
             'Run Allocation Process?',

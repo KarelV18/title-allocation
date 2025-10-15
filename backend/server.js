@@ -10,6 +10,8 @@ const preferenceRoutes = require('./routes/preferenceRoutes');
 const allocationRoutes = require('./routes/allocationRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const customTitleRoutes = require('./routes/customTitleRoutes');
+const supervisorAssignmentRoutes = require('./routes/supervisorAssignmentRoutes');
+
 
 const { connectDB } = require('./config/database');
 
@@ -29,6 +31,8 @@ app.use('/api/preferences', preferenceRoutes);
 app.use('/api/allocations', allocationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/custom-titles', customTitleRoutes);
+app.use('/api/supervisor-assignment', supervisorAssignmentRoutes);
+
 
 // Serve frontend
 app.get('*', (req, res) => {

@@ -6,6 +6,26 @@ class Allocation {
     return getDB().collection('allocations');
   }
 
+  // Add new methods to Allocation model
+  static async getNeedsSupervisor() {
+    return await this.collection().find({ needsSupervisor: true }).toArray();
+  }
+
+  static async updateSupervisor(allocationId, supervisorId, supervisorName) {
+    return await this.collection().updateOne(
+      { _id: new ObjectId(allocationId) },
+      {
+        $set: {
+          supervisorId: new ObjectId(supervisorId),
+          supervisorName: supervisorName,
+          needsSupervisor: false,
+          assignedAt: new Date()
+        }
+      }
+    );
+  }
+
+  // Update create method to include needsSupervisor field
   static async create(allocationData) {
     const allocation = {
       studentId: new ObjectId(allocationData.studentId),
@@ -13,9 +33,14 @@ class Allocation {
       studentUsername: allocationData.studentUsername,
       titleId: new ObjectId(allocationData.titleId),
       title: allocationData.title,
-      supervisorId: new ObjectId(allocationData.supervisorId),
-      supervisorName: allocationData.supervisorName,
+      supervisorId: allocationData.supervisorId ? new ObjectId(allocationData.supervisorId) : null,
+      supervisorName: allocationData.supervisorName || null,
+      originalSupervisorId: allocationData.originalSupervisorId ? new ObjectId(allocationData.originalSupervisorId) : null,
+      originalSupervisorName: allocationData.originalSupervisorName || null,
       isCustomTitle: allocationData.isCustomTitle || false,
+      needsSupervisor: allocationData.needsSupervisor || false,
+      isTop3: allocationData.isTop3 || false,
+      preferenceRank: allocationData.preferenceRank || null,
       allocatedAt: new Date()
     };
 
@@ -31,14 +56,14 @@ class Allocation {
     return await this.collection().find({ supervisorId: new ObjectId(supervisorId) }).toArray();
   }
 
-static async getAll() {
+  static async getAll() {
     try {
-        return await this.collection().find().toArray();
+      return await this.collection().find().toArray();
     } catch (error) {
-        console.error('Error getting all allocations:', error);
-        throw error;
+      console.error('Error getting all allocations:', error);
+      throw error;
     }
-}
+  }
 
   static async deleteAll() {
     return await this.collection().deleteMany({});
