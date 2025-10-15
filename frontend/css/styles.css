@@ -1,0 +1,49 @@
+.rotate-180 {
+    transform: rotate(180deg);
+}
+
+.transition-transform {
+    transition: transform 0.2s ease-in-out;
+}
+
+/* Ensure smooth transitions for all states */
+.supervisor-titles {
+    transition: max-height 0.3s ease-in-out;
+    overflow: hidden;
+}
+
+.preference-title {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Remove the hidden class from supervisor-titles in the default state */
+.supervisor-titles:not(.hidden) {
+    display: block;
+}
+
+.student-choice-details {
+    transition: max-height 0.3s ease-in-out;
+    overflow: hidden;
+}
+
+/* Button state transitions */
+#submit-preferences-btn {
+    transition: all 0.3s ease;
+}
+
+/* Search input styles */
+#search-titles:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Hover effects for titles */
+.preference-title:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Selected title styles */
+.preference-title.bg-blue-50 {
+    border-color: #3b82f6;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+}

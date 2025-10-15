@@ -1,0 +1,5 @@
+username,password,role,name,email
+student1,student123,student,John Doe,john@email.com
+student2,student123,student,Jane Smith,jane@email.com
+mrinal,super123,supervisor,Mrinal Sharma,m.sharma@mdx.ac.mu
+karel,super123,supervisor,Karel Veerabudren,k.veerabudren@mdx.ac.mu
