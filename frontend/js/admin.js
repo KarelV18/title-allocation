@@ -1735,6 +1735,197 @@ class AdminDashboard {
         }
     }
 
+
+    // Add this method to the AdminDashboard class
+    loadSecondMarkerAssignment() {
+        const content = $('#admin-content');
+        content.html(`
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-2xl font-bold mb-6">Second Marker Assignment</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 class="font-semibold text-blue-800 mb-2">Assignment Rules</h3>
+                    <ul class="text-sm text-blue-700 space-y-1">
+                        <li>• Each supervisor second marks exactly the same number of students they supervise</li>
+                        <li>• Supervisors cannot be second markers for their own students</li>
+                        <li>• Minimizes the number of different second marker pairs</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 class="font-semibold text-green-800 mb-2">Actions</h3>
+                    <div class="space-y-2">
+                        <button id="assign-second-markers-btn" class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                            Assign Second Markers
+                        </button>
+                        <button id="view-second-markers-btn" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            View Current Assignments
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="second-marker-results" class="mt-6">
+                <!-- Results will be displayed here -->
+            </div>
+        </div>
+    `);
+
+        // Event listeners
+        $('#assign-second-markers-btn').on('click', () => this.assignSecondMarkers());
+        $('#view-second-markers-btn').on('click', () => this.viewSecondMarkerAssignments());
+    }
+
+    // Add these methods to the AdminDashboard class
+    async assignSecondMarkers() {
+        try {
+            const result = await SweetAlert.confirm(
+                'Assign Second Markers',
+                'This will assign second markers to all allocated students based on the optimization rules. Continue?'
+            );
+
+            if (!result.isConfirmed) return;
+
+            SweetAlert.loading('Assigning second markers...');
+
+            const response = await $.ajax({
+                url: '/api/second-markers/assign',
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            SweetAlert.close();
+
+            await SweetAlert.success('Second markers assigned successfully!');
+            this.displaySecondMarkerResults(response);
+
+        } catch (error) {
+            SweetAlert.close();
+            await SweetAlert.error('Error assigning second markers: ' + (error.responseJSON?.message || error.statusText));
+        }
+    }
+
+    async viewSecondMarkerAssignments() {
+        try {
+            SweetAlert.loading('Loading second marker assignments...');
+
+            const response = await $.ajax({
+                url: '/api/second-markers/assignments',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            SweetAlert.close();
+            this.displaySecondMarkerAssignments(response);
+
+        } catch (error) {
+            SweetAlert.close();
+            await SweetAlert.error('Error loading assignments: ' + (error.responseJSON?.message || error.statusText));
+        }
+    }
+
+    displaySecondMarkerResults(data) {
+        const resultsContainer = $('#second-marker-results');
+
+        let html = `
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <h3 class="font-semibold text-green-800 mb-2">Assignment Completed Successfully</h3>
+            <p class="text-green-700">Assigned second markers for ${data.assignments.length} students.</p>
+        </div>
+    `;
+
+        // Display statistics
+        if (data.statistics && data.statistics.supervisorPairStats) {
+            html += `
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-4">Supervisor Pairing Statistics</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        `;
+
+            data.statistics.supervisorPairStats.forEach(stat => {
+                html += `
+                <div class="bg-white border rounded-lg p-4">
+                    <h4 class="font-semibold mb-2">${stat.supervisorName}</h4>
+                    <div class="text-sm space-y-1">
+                        <p>Supervises: <span class="font-semibold">${stat.supervisionCount}</span> students</p>
+                        <p>Second Marks: <span class="font-semibold">${stat.secondMarkingCount}</span> students</p>
+                        <p>Works with: <span class="font-semibold">${stat.uniquePairs}</span> second markers</p>
+                        <p class="text-xs text-gray-600 mt-2">Partners: ${stat.pairs.join(', ') || 'None'}</p>
+                    </div>
+                </div>
+            `;
+            });
+
+            html += `</div></div>`;
+        }
+
+        // Display assignments table
+        html += this.renderSecondMarkerAssignmentsTable(data.assignments);
+
+        resultsContainer.html(html);
+    }
+
+    displaySecondMarkerAssignments(assignments) {
+        const resultsContainer = $('#second-marker-results');
+
+        let html = `
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold mb-4">Current Second Marker Assignments</h3>
+            <p class="text-gray-600 mb-4">Showing ${assignments.length} assignments</p>
+        </div>
+    `;
+
+        html += this.renderSecondMarkerAssignmentsTable(assignments);
+
+        resultsContainer.html(html);
+    }
+
+    renderSecondMarkerAssignmentsTable(assignments) {
+        if (!assignments || assignments.length === 0) {
+            return `
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                <p class="text-yellow-700">No second marker assignments found.</p>
+                <p class="text-yellow-600 text-sm mt-2">Click "Assign Second Markers" to generate assignments.</p>
+            </div>
+        `;
+        }
+
+        let html = `
+        <div class="overflow-x-auto">
+            <table class="min-w-full table-auto border-collapse">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="border px-4 py-2 text-left">Student ID</th>
+                        <th class="border px-4 py-2 text-left">Student Name</th>
+                        <th class="border px-4 py-2 text-left">Project Title</th>
+                        <th class="border px-4 py-2 text-left">Supervisor</th>
+                        <th class="border px-4 py-2 text-left">2nd Marker</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+        assignments.forEach(assignment => {
+            html += `
+            <tr class="hover:bg-gray-50">
+                <td class="border px-4 py-2">${assignment.studentUsername}</td>
+                <td class="border px-4 py-2">${assignment.studentName}</td>
+                <td class="border px-4 py-2">${assignment.title}</td>
+                <td class="border px-4 py-2">${assignment.supervisorName}</td>
+                <td class="border px-4 py-2 ${assignment.secondMarkerName === 'Not Assigned' ? 'text-red-600 font-semibold' : ''}">
+                    ${assignment.secondMarkerName}
+                </td>
+            </tr>
+        `;
+        });
+
+        html += `</tbody></table></div>`;
+
+        return html;
+    }
+
+
     attachCustomTitleEventListeners() {
         $(document).off('click', '.approve-custom-title').on('click', '.approve-custom-title', (e) => {
             const studentId = $(e.target).data('student-id');

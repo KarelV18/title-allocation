@@ -92,48 +92,52 @@ class Auth {
 
     loadAdminDashboard(content) {
         content.html(`
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="manage-titles-card">
-                <h3 class="text-lg font-semibold mb-2">Title Management</h3>
-                <p class="text-gray-600 text-sm">Manage and approve supervisor titles</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="manage-users-card">
-                <h3 class="text-lg font-semibold mb-2">User Management</h3>
-                <p class="text-gray-600 text-sm">Manage users and bulk upload</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="student-choices-card">
-                <h3 class="text-lg font-semibold mb-2">Student Choices</h3>
-                <p class="text-gray-600 text-sm">View all student preferences & custom titles</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="custom-titles-card">
-                <h3 class="text-lg font-semibold mb-2">Custom Titles</h3>
-                <p class="text-gray-600 text-sm">Manage student proposed custom titles</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="run-allocation-card">
-                <h3 class="text-lg font-semibold mb-2">Allocation</h3>
-                <p class="text-gray-600 text-sm">Run title allocation process</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="supervisor-assignment-card">
-                <h3 class="text-lg font-semibold mb-2">Supervisor Assignment</h3>
-                <p class="text-gray-600 text-sm">Assign supervisors to pending allocations</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="capacity-conflicts-card">
-                <h3 class="text-lg font-semibold mb-2">Capacity Conflicts</h3>
-                <p class="text-gray-600 text-sm">Resolve supervisor capacity issues</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="system-settings-card">
-                <h3 class="text-lg font-semibold mb-2">System Settings</h3>
-                <p class="text-gray-600 text-sm">Set deadlines and allocation status</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="generate-report-card">
-                <h3 class="text-lg font-semibold mb-2">Reports</h3>
-                <p class="text-gray-600 text-sm">Generate allocation reports</p>
-            </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="manage-titles-card">
+            <h3 class="text-lg font-semibold mb-2">Title Management</h3>
+            <p class="text-gray-600 text-sm">Manage and approve supervisor titles</p>
         </div>
-        <div id="admin-content" class="mt-6"></div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="manage-users-card">
+            <h3 class="text-lg font-semibold mb-2">User Management</h3>
+            <p class="text-gray-600 text-sm">Manage users and bulk upload</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="student-choices-card">
+            <h3 class="text-lg font-semibold mb-2">Student Choices</h3>
+            <p class="text-gray-600 text-sm">View all student preferences & custom titles</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="custom-titles-card">
+            <h3 class="text-lg font-semibold mb-2">Custom Titles</h3>
+            <p class="text-gray-600 text-sm">Manage student proposed custom titles</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="run-allocation-card">
+            <h3 class="text-lg font-semibold mb-2">Allocation</h3>
+            <p class="text-gray-600 text-sm">Run title allocation process</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="supervisor-assignment-card">
+            <h3 class="text-lg font-semibold mb-2">Supervisor Assignment</h3>
+            <p class="text-gray-600 text-sm">Assign supervisors to pending allocations</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="capacity-conflicts-card">
+            <h3 class="text-lg font-semibold mb-2">Capacity Conflicts</h3>
+            <p class="text-gray-600 text-sm">Resolve supervisor capacity issues</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="second-marker-card">
+            <h3 class="text-lg font-semibold mb-2">Second Markers</h3>
+            <p class="text-gray-600 text-sm">Assign second markers for VIVA examinations</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="system-settings-card">
+            <h3 class="text-lg font-semibold mb-2">System Settings</h3>
+            <p class="text-gray-600 text-sm">Set deadlines and allocation status</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="generate-report-card">
+            <h3 class="text-lg font-semibold mb-2">Reports</h3>
+            <p class="text-gray-600 text-sm">Generate allocation reports</p>
+        </div>
+    </div>
+    <div id="admin-content" class="mt-6"></div>
     `);
 
-        // Add click handlers
+        // Add click handlers (existing ones remain the same)
         $('#manage-titles-card').on('click', () => {
             if (window.adminDashboard) {
                 window.adminDashboard.loadTitleManagement();
@@ -164,15 +168,22 @@ class Auth {
             }
         });
 
-        $('#generate-report-card').on('click', () => {
-            if (window.adminDashboard) {
-                window.adminDashboard.generateReport();
-            }
-        });
-
         $('#supervisor-assignment-card').on('click', () => {
             if (window.adminDashboard) {
                 window.adminDashboard.loadSupervisorAssignment();
+            }
+        });
+
+        $('#capacity-conflicts-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadCapacityConflicts();
+            }
+        });
+
+        // ADD THE NEW SECOND MARKER CARD HANDLER
+        $('#second-marker-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadSecondMarkerAssignment();
             }
         });
 
@@ -182,9 +193,9 @@ class Auth {
             }
         });
 
-        $('#capacity-conflicts-card').on('click', () => {
+        $('#generate-report-card').on('click', () => {
             if (window.adminDashboard) {
-                window.adminDashboard.loadCapacityConflicts();
+                window.adminDashboard.generateReport();
             }
         });
 
