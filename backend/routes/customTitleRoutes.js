@@ -2,6 +2,7 @@ const express = require('express');
 const { auth, authorize } = require('../middleware/auth');
 const Preference = require('../models/Preference');
 const User = require('../models/User');
+const Allocation = require('../models/Allocation');
 const { ObjectId } = require('mongodb');
 
 const router = express.Router();
