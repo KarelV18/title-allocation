@@ -1,6 +1,7 @@
 const express = require('express');
 const { auth, authorize } = require('../middleware/auth');
 const Allocation = require('../models/Allocation');
+const User = require('../models/User');
 const XLSX = require('xlsx');
 
 const router = express.Router();
