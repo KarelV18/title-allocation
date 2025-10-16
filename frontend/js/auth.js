@@ -113,6 +113,10 @@ class Auth {
             <h3 class="text-lg font-semibold mb-2">Allocation</h3>
             <p class="text-gray-600 text-sm">Run title allocation process</p>
         </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="finalized-allocations-card">
+            <h3 class="text-lg font-semibold mb-2">Finalized Allocations</h3>
+            <p class="text-gray-600 text-sm">View complete allocation results</p>
+        </div>
         <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="supervisor-assignment-card">
             <h3 class="text-lg font-semibold mb-2">Supervisor Assignment</h3>
             <p class="text-gray-600 text-sm">Assign supervisors to pending allocations</p>
@@ -196,6 +200,12 @@ class Auth {
         $('#generate-report-card').on('click', () => {
             if (window.adminDashboard) {
                 window.adminDashboard.generateReport();
+            }
+        });
+
+        $('#finalized-allocations-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadFinalizedAllocations();
             }
         });
 

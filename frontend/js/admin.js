@@ -411,6 +411,345 @@ class AdminDashboard {
     }
 
     // Add to AdminDashboard class
+    loadFinalizedAllocations() {
+        const content = $('#admin-content');
+        content.html(`
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Finalized Allocations</h2>
+                <div class="flex space-x-2">
+                    <button id="refresh-allocations-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div id="allocation-stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <!-- Stats will be loaded here -->
+            </div>
+
+            <!-- Filters and Search -->
+            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Filter by Supervisor</label>
+                        <select id="supervisor-filter" class="w-full border rounded px-3 py-2">
+                            <option value="">All Supervisors</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Filter by Allocation Type</label>
+                        <select id="type-filter" class="w-full border rounded px-3 py-2">
+                            <option value="">All Types</option>
+                            <option value="regular">Regular Titles</option>
+                            <option value="custom">Custom Titles</option>
+                            <option value="needs_supervisor">Needs Supervisor</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Search Students</label>
+                        <input type="text" id="student-search" placeholder="Search by student name or ID..." 
+                               class="w-full border rounded px-3 py-2">
+                    </div>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span id="results-count" class="text-sm text-gray-600">Loading...</span>
+                    <button id="clear-filters" class="text-sm text-blue-600 hover:text-blue-800">Clear Filters</button>
+                </div>
+            </div>
+
+            <!-- Allocations Table -->
+            <div id="allocations-table-container">
+                <div class="text-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                    <p class="mt-4 text-gray-600">Loading allocations...</p>
+                </div>
+            </div>
+        </div>
+    `);
+
+        // Load data
+        this.loadAllocationsData();
+
+        // Event listeners
+        $('#refresh-allocations-btn').on('click', () => this.loadAllocationsData());
+        $('#supervisor-filter').on('change', () => this.filterAllocations());
+        $('#type-filter').on('change', () => this.filterAllocations());
+        $('#student-search').on('input', () => this.filterAllocations());
+        $('#clear-filters').on('click', () => this.clearFilters());
+    }
+
+    async loadAllocationsData() {
+        try {
+            const [allocations, supervisors, settings] = await Promise.all([
+                $.ajax({
+                    url: '/api/allocations',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }),
+                $.ajax({
+                    url: '/api/users/supervisors',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }),
+                $.ajax({
+                    url: '/api/system-settings',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }).catch(() => ({ allocationCompleted: false }))
+            ]);
+
+            this.allAllocations = allocations || [];
+            this.allSupervisors = supervisors || [];
+
+            // Store for filtering
+            this.currentFilteredAllocations = [...this.allAllocations];
+
+            this.renderAllocationStats();
+            this.renderSupervisorFilter();
+            this.renderAllocationsTable();
+            this.updateResultsCount();
+
+        } catch (error) {
+            console.error('Error loading allocations data:', error);
+            $('#allocations-table-container').html(`
+            <div class="text-center py-8 text-red-500">
+                <p>Error loading allocations data. Please try again.</p>
+            </div>
+        `);
+        }
+    }
+
+    renderAllocationStats() {
+        const statsContainer = $('#allocation-stats');
+        const allocations = this.allAllocations;
+
+        const totalStudents = allocations.length;
+        const customTitles = allocations.filter(a => a.isCustomTitle).length;
+        const needsSupervisor = allocations.filter(a => a.needsSupervisor).length;
+        const regularTitles = totalStudents - customTitles;
+        const allocationRate = this.allSupervisors.length > 0 ?
+            ((allocations.filter(a => a.supervisorId).length / totalStudents) * 100).toFixed(1) : 0;
+
+        statsContainer.html(`
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex items-center">
+                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-blue-700">${totalStudents}</p>
+                    <p class="text-sm text-blue-600">Total Allocated</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div class="flex items-center">
+                <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-green-700">${customTitles}</p>
+                    <p class="text-sm text-green-600">Custom Titles</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <div class="flex items-center">
+                <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-purple-700">${regularTitles}</p>
+                    <p class="text-sm text-purple-600">Regular Titles</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div class="flex items-center">
+                <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+                    <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-orange-700">${needsSupervisor}</p>
+                    <p class="text-sm text-orange-600">Need Supervisor</p>
+                </div>
+            </div>
+        </div>
+    `);
+    }
+
+    renderSupervisorFilter() {
+        const supervisorFilter = $('#supervisor-filter');
+        let options = '<option value="">All Supervisors</option>';
+
+        this.allSupervisors.forEach(supervisor => {
+            options += `<option value="${supervisor._id}">${supervisor.name}</option>`;
+        });
+
+        supervisorFilter.html(options);
+    }
+
+    renderAllocationsTable() {
+        const container = $('#allocations-table-container');
+        const allocations = this.currentFilteredAllocations;
+
+        if (allocations.length === 0) {
+            container.html(`
+            <div class="text-center py-8">
+                <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p class="text-gray-500 text-lg">No allocations found</p>
+                <p class="text-gray-400 mt-2">Run the allocation process to see results here.</p>
+            </div>
+        `);
+            return;
+        }
+
+        let tableHtml = `
+        <div class="overflow-x-auto border rounded-lg">
+            <table class="min-w-full table-auto">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supervisor</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preference</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+    `;
+
+        allocations.forEach(allocation => {
+            const allocationType = allocation.isCustomTitle ? 'Custom Title' : 'Regular Title';
+            const typeBadge = allocation.isCustomTitle ?
+                'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800';
+
+            const statusBadge = allocation.needsSupervisor ?
+                'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
+            const statusText = allocation.needsSupervisor ? 'Needs Supervisor' : 'Complete';
+
+            tableHtml += `
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="ml-4">
+                            <div class="text-sm font-medium text-gray-900">${allocation.studentName}</div>
+                            <div class="text-sm text-gray-500">${allocation.studentUsername}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="text-sm text-gray-900 max-w-xs truncate">${allocation.title}</div>
+                    ${allocation.isCustomTitle ? '<div class="text-xs text-green-600">Custom Title</div>' : ''}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">${allocation.supervisorName || 'Not Assigned'}</div>
+                    ${allocation.originalSupervisorName && allocation.originalSupervisorName !== allocation.supervisorName ?
+                    `<div class="text-xs text-gray-500">Originally: ${allocation.originalSupervisorName}</div>` : ''}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${typeBadge}">
+                        ${allocationType}
+                    </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusBadge}">
+                        ${statusText}
+                    </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    ${allocation.preferenceRank ? `Rank ${allocation.preferenceRank}` : 'N/A'}
+                    ${allocation.isTop3 ? '<div class="text-xs text-blue-600">Top 3 Preference</div>' : ''}
+                </td>
+            </tr>
+        `;
+        });
+
+        tableHtml += `</tbody></table></div>`;
+        container.html(tableHtml);
+    }
+
+    filterAllocations() {
+        const supervisorFilter = $('#supervisor-filter').val();
+        const typeFilter = $('#type-filter').val();
+        const searchTerm = $('#student-search').val().toLowerCase();
+
+        this.currentFilteredAllocations = this.allAllocations.filter(allocation => {
+            // Supervisor filter
+            if (supervisorFilter && allocation.supervisorId !== supervisorFilter) {
+                return false;
+            }
+
+            // Type filter
+            if (typeFilter === 'custom' && !allocation.isCustomTitle) {
+                return false;
+            }
+            if (typeFilter === 'regular' && allocation.isCustomTitle) {
+                return false;
+            }
+            if (typeFilter === 'needs_supervisor' && !allocation.needsSupervisor) {
+                return false;
+            }
+
+            // Search filter
+            if (searchTerm) {
+                const studentName = allocation.studentName.toLowerCase();
+                const studentId = allocation.studentUsername.toLowerCase();
+                const title = allocation.title.toLowerCase();
+
+                if (!studentName.includes(searchTerm) &&
+                    !studentId.includes(searchTerm) &&
+                    !title.includes(searchTerm)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        this.renderAllocationsTable();
+        this.updateResultsCount();
+    }
+
+    clearFilters() {
+        $('#supervisor-filter').val('');
+        $('#type-filter').val('');
+        $('#student-search').val('');
+        this.currentFilteredAllocations = [...this.allAllocations];
+        this.renderAllocationsTable();
+        this.updateResultsCount();
+    }
+
+    updateResultsCount() {
+        const total = this.allAllocations.length;
+        const filtered = this.currentFilteredAllocations.length;
+        const countText = filtered === total ?
+            `Showing all ${total} allocations` :
+            `Showing ${filtered} of ${total} allocations`;
+
+        $('#results-count').text(countText);
+    }
+
+    // Add to AdminDashboard class
     async loadSystemSettings() {
         try {
             const response = await $.ajax({
