@@ -10,24 +10,15 @@ const router = express.Router();
 router.get('/excel', auth, authorize('admin'), async (req, res) => {
     try {
         console.log('=== Starting Report Generation ===');
-        console.log('User making request:', req.user.username, 'Role:', req.user.role);
 
         const allocations = await Allocation.getAll();
-        const students = await User.getAllByRole('student');
-
-        console.log('Allocations found:', allocations ? allocations.length : 0);
-
-        if (!allocations || allocations.length === 0) {
-            return res.status(400).json({
-                message: 'No allocations found. Please run the allocation process first.'
-            });
-        }    // Get supervisor data for capacity reporting
         const supervisors = await User.getAllByRole('supervisor');
+        const students = await User.getAllByRole('student');
 
         // Create student email map
         const studentEmailMap = new Map();
         students.forEach(student => {
-            studentEmailMap.set(student.username, student.email);
+            studentEmailMap.set(student.username, student.email || 'N/A');
         });
 
         if (!allocations || allocations.length === 0) {
@@ -36,6 +27,7 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
             });
         }
 
+        // Get supervisor data for capacity reporting
         const supervisorCapacity = new Map();
 
         // Calculate REAL-TIME supervisor allocations
@@ -50,8 +42,7 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
         }
 
         // Prepare data for Sheet 1: Allocations
-        // Prepare data for Excel
-        const data = allocations.map(allocation => {
+        const allocationData = allocations.map(allocation => {
             const supervisorInfo = allocation.supervisorId ?
                 supervisorCapacity.get(allocation.supervisorId.toString()) : null;
 
@@ -70,9 +61,17 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
         });
 
         // Generate second marker assignments for Sheet 2
-        const supervisedAllocations = allocations.filter(a => a.supervisorId);
-        const assignmentEngine = new SecondMarkerAssignment(supervisedAllocations, supervisors);
-        const secondMarkerResults = assignmentEngine.assignSecondMarkers();
+        let secondMarkerResults = { assignments: [], statistics: { supervisorPairStats: [] } };
+        try {
+            const supervisedAllocations = allocations.filter(a => a.supervisorId);
+            if (supervisedAllocations.length > 0) {
+                const assignmentEngine = new SecondMarkerAssignment(supervisedAllocations, supervisors);
+                secondMarkerResults = assignmentEngine.assignSecondMarkers();
+            }
+        } catch (error) {
+            console.warn('Error generating second marker assignments:', error);
+            // Continue with empty second marker results
+        }
 
         // Prepare data for Sheet 2: VIVA Plan
         const vivaPlanData = secondMarkerResults.assignments.map(assignment => {
@@ -92,32 +91,50 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
             };
         });
 
-        // Add summary rows to allocation data
-        allocationData.unshift({
-            'Student ID': 'SUMMARY',
-            'Student Name': `Total Allocations: ${allocations.length}`,
-            'Supervisor Name': `Custom Titles: ${allocations.filter(a => a.isCustomTitle).length}`,
-            'Supervisor Capacity': `Needs Supervisor: ${allocations.filter(a => a.needsSupervisor).length}`,
-            'Allocated Title': `Regular Titles: ${allocations.filter(a => !a.isCustomTitle).length}`,
-            'Custom Title': `Generated: ${new Date().toLocaleDateString()}`,
-            'Needs Supervisor': '',
-            'Allocation Date': ''
-        });
+        // If no second marker assignments, create empty structure
+        if (vivaPlanData.length === 0) {
+            vivaPlanData.push({
+                'Student ID': 'No second marker assignments generated',
+                'Student First Name': 'Run second marker assignment first',
+                'Student Last Name': '',
+                'Student Email': '',
+                'Allocated Title': '',
+                'Supervisor': '',
+                '2nd Marker': ''
+            });
+        }
 
-        // Add supervisor capacity summary
-        allocationData.unshift({
-            'Student ID': 'SUPERVISOR CAPACITY',
-            'Student Name': '=== SUPERVISOR CAPACITY SUMMARY ===',
-            'Supervisor Name': '',
-            'Supervisor Capacity': '',
-            'Allocated Title': '',
-            'Custom Title': '',
-            'Needs Supervisor': '',
-            'Allocation Date': ''
-        });
+        // Create summary data for allocation sheet
+        const allocationSummary = [
+            {
+                'Student ID': 'SUMMARY',
+                'Student Name': `Total Allocations: ${allocations.length}`,
+                'Supervisor Name': `Custom Titles: ${allocations.filter(a => a.isCustomTitle).length}`,
+                'Supervisor Capacity': `Needs Supervisor: ${allocations.filter(a => a.needsSupervisor).length}`,
+                'Allocated Title': `Regular Titles: ${allocations.filter(a => !a.isCustomTitle).length}`,
+                'Custom Title': `Generated: ${new Date().toLocaleDateString()}`,
+                'Needs Supervisor': '',
+                'Allocation Date': ''
+            }
+        ];
 
+        // Create supervisor capacity summary
+        const supervisorSummary = [
+            {
+                'Student ID': 'SUPERVISOR CAPACITY',
+                'Student Name': '=== SUPERVISOR CAPACITY SUMMARY ===',
+                'Supervisor Name': '',
+                'Supervisor Capacity': '',
+                'Allocated Title': '',
+                'Custom Title': '',
+                'Needs Supervisor': '',
+                'Allocation Date': ''
+            }
+        ];
+
+        // Add supervisor capacity details
         Array.from(supervisorCapacity.values()).forEach(cap => {
-            allocationData.unshift({
+            supervisorSummary.push({
                 'Student ID': '',
                 'Student Name': cap.supervisorName,
                 'Supervisor Name': `${cap.current}/${cap.capacity}`,
@@ -130,34 +147,55 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
             });
         });
 
-        // Add second marker statistics to VIVA Plan
-        vivaPlanData.unshift({
-            'Student ID': 'SECOND MARKER STATISTICS',
-            'Student First Name': '=== SECOND MARKER ASSIGNMENT SUMMARY ===',
-            'Student Last Name': '',
-            'Student Email': '',
-            'Allocated Title': '',
-            'Supervisor': '',
-            '2nd Marker': ''
-        });
+        // Combine all data for sheet 1
+        const finalAllocationData = [...supervisorSummary, ...allocationSummary, ...allocationData];
 
-        secondMarkerResults.statistics.supervisorPairStats.forEach(stat => {
-            vivaPlanData.unshift({
+        // Create second marker summary
+        const secondMarkerSummary = [
+            {
+                'Student ID': 'SECOND MARKER STATISTICS',
+                'Student First Name': '=== SECOND MARKER ASSIGNMENT SUMMARY ===',
+                'Student Last Name': '',
+                'Student Email': '',
+                'Allocated Title': '',
+                'Supervisor': '',
+                '2nd Marker': ''
+            }
+        ];
+
+        // Add second marker statistics if available
+        if (secondMarkerResults.statistics && secondMarkerResults.statistics.supervisorPairStats) {
+            secondMarkerResults.statistics.supervisorPairStats.forEach(stat => {
+                secondMarkerSummary.push({
+                    'Student ID': '',
+                    'Student First Name': stat.supervisorName,
+                    'Student Last Name': `Supervises: ${stat.supervisionCount}, Marks: ${stat.secondMarkingCount}`,
+                    'Student Email': `Unique 2nd Markers: ${stat.uniquePairs}`,
+                    'Allocated Title': stat.pairs.join(', '),
+                    'Supervisor': '',
+                    '2nd Marker': ''
+                });
+            });
+        } else {
+            secondMarkerSummary.push({
                 'Student ID': '',
-                'Student First Name': stat.supervisorName,
-                'Student Last Name': `Supervises: ${stat.supervisionCount}, Marks: ${stat.secondMarkingCount}`,
-                'Student Email': `Unique 2nd Markers: ${stat.uniquePairs}`,
-                'Allocated Title': stat.pairs.join(', '),
+                'Student First Name': 'No second marker statistics available',
+                'Student Last Name': 'Run second marker assignment to generate statistics',
+                'Student Email': '',
+                'Allocated Title': '',
                 'Supervisor': '',
                 '2nd Marker': ''
             });
-        });
+        }
+
+        // Combine all data for sheet 2
+        const finalVivaPlanData = [...secondMarkerSummary, ...vivaPlanData];
 
         // Create workbook with two sheets
         const wb = XLSX.utils.book_new();
 
         // Sheet 1: Allocations
-        const ws1 = XLSX.utils.json_to_sheet(allocationData);
+        const ws1 = XLSX.utils.json_to_sheet(finalAllocationData);
         const allocationColWidths = [
             { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 20 },
             { wch: 50 }, { wch: 12 }, { wch: 15 }, { wch: 15 }
@@ -166,7 +204,7 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
         XLSX.utils.book_append_sheet(wb, ws1, 'Allocations');
 
         // Sheet 2: VIVA Plan
-        const ws2 = XLSX.utils.json_to_sheet(vivaPlanData);
+        const ws2 = XLSX.utils.json_to_sheet(finalVivaPlanData);
         const vivaColWidths = [
             { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 25 },
             { wch: 50 }, { wch: 25 }, { wch: 25 }
@@ -196,44 +234,6 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
         res.status(500).json({
             message: 'Error generating report: ' + error.message
         });
-    }
-});
-
-
-// Add a new endpoint to get allocation statistics
-router.get('/statistics', auth, authorize('admin'), async (req, res) => {
-    try {
-        const allocations = await Allocation.getAll();
-        const supervisors = await User.getAllByRole('supervisor');
-
-        // Calculate real-time statistics
-        const stats = {
-            totalAllocations: allocations.length,
-            customTitles: allocations.filter(a => a.isCustomTitle).length,
-            needsSupervisor: allocations.filter(a => a.needsSupervisor).length,
-            regularTitles: allocations.filter(a => !a.isCustomTitle).length,
-            supervisorUtilization: []
-        };
-
-        // Calculate supervisor utilization
-        for (const supervisor of supervisors) {
-            const supervisorAllocations = await Allocation.findBySupervisor(supervisor._id);
-            const currentCount = supervisorAllocations ? supervisorAllocations.length : 0;
-            const capacity = supervisor.capacity || 0;
-
-            stats.supervisorUtilization.push({
-                supervisorName: supervisor.name,
-                current: currentCount,
-                capacity: capacity,
-                remaining: capacity - currentCount,
-                utilization: capacity > 0 ? (currentCount / capacity) * 100 : 0
-            });
-        }
-
-        res.json(stats);
-    } catch (error) {
-        console.error('Error fetching allocation statistics:', error);
-        res.status(500).json({ message: 'Error fetching statistics' });
     }
 });
 
