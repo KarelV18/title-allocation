@@ -16,13 +16,24 @@ router.get('/conflicts', auth, authorize('admin'), async (req, res) => {
         const allocations = await Allocation.getAll();
 
         // Calculate current supervisor allocations
-        const supervisorAllocations = new Map();
+        const supervisorAllocations = new Map();// Initialize all supervisors with 0 allocations
+        supervisors.forEach(supervisor => {
+            supervisorAllocations.set(supervisor._id.toString(), {
+                count: 0,
+                supervisor: supervisor,
+                allocations: []
+            });
+        });
+
+        // Count actual allocations for each supervisor
         allocations.forEach(allocation => {
             if (allocation.supervisorId) {
                 const supervisorId = allocation.supervisorId.toString();
-                supervisorAllocations.set(supervisorId, 
-                    (supervisorAllocations.get(supervisorId) || 0) + 1
-                );
+                if (supervisorAllocations.has(supervisorId)) {
+                    const data = supervisorAllocations.get(supervisorId);
+                    data.count++;
+                    data.allocations.push(allocation);
+                }
             }
         });
 
@@ -43,7 +54,8 @@ router.get('/conflicts', auth, authorize('admin'), async (req, res) => {
 
                 if (supervisor && student) {
                     const supervisorId = supervisor._id.toString();
-                    const currentAllocations = supervisorAllocations.get(supervisorId) || 0;
+                    const allocationData = supervisorAllocations.get(supervisorId);
+                    const currentAllocations = allocationData ? allocationData.count : 0;
                     const supervisorCapacity = supervisor.capacity || 0;
 
                     if (currentAllocations >= supervisorCapacity) {
@@ -64,7 +76,24 @@ router.get('/conflicts', auth, authorize('admin'), async (req, res) => {
             }
         }
 
-        res.json(conflicts);
+        // Also return supervisor allocation data for the frontend
+        const supervisorData = Array.from(supervisorAllocations.values()).map(data => ({
+            supervisorId: data.supervisor._id,
+            supervisorName: data.supervisor.name,
+            capacity: data.supervisor.capacity || 0,
+            currentAllocations: data.count,
+            remainingCapacity: (data.supervisor.capacity || 0) - data.count,
+            allocations: data.allocations.map(a => ({
+                studentName: a.studentName,
+                title: a.title,
+                isCustomTitle: a.isCustomTitle
+            }))
+        }));
+
+        res.json({
+            conflicts: conflicts,
+            supervisors: supervisorData
+        });
     } catch (error) {
         console.error('Error fetching capacity conflicts:', error);
         res.status(500).json({ message: 'Error fetching capacity conflicts' });
@@ -95,14 +124,16 @@ router.post('/resolve', auth, authorize('admin'), async (req, res) => {
                 return res.status(400).json({ message: 'Invalid supervisor' });
             }
 
-            // Check if new supervisor has capacity
+            // Check if new supervisor has capacity - PROPER CHECK
             const currentAllocations = await Allocation.findBySupervisor(newSupervisorId);
             const currentCount = currentAllocations ? currentAllocations.length : 0;
             const supervisorCapacity = newSupervisor.capacity || 0;
 
+            console.log(`Checking capacity for ${newSupervisor.name}: ${currentCount}/${supervisorCapacity}`);
+
             if (currentCount >= supervisorCapacity) {
                 return res.status(400).json({ 
-                    message: `New supervisor ${newSupervisor.name} also has no capacity (${currentCount}/${supervisorCapacity})` 
+                    message: `New supervisor ${newSupervisor.name} has no capacity (${currentCount}/${supervisorCapacity})` 
                 });
             }
 

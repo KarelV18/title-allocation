@@ -1,6 +1,7 @@
 class AdminDashboard {
     constructor() {
         this.allStudentChoices = [];
+        this.supervisors = [];
         this.init();
     }
 
@@ -26,6 +27,15 @@ class AdminDashboard {
 
         // Reports
         $(document).on('click', '#generate-report-btn', () => this.generateReport());
+
+        // System Settings
+        $(document).on('click', '#system-settings-card', () => this.loadSystemSettings());
+
+        // Capacity Conflicts
+        $(document).on('click', '#capacity-conflicts-card', () => this.loadCapacityConflicts());
+
+        // Supervisor Assignment
+        $(document).on('click', '#supervisor-assignment-card', () => this.loadSupervisorAssignment());
     }
 
     async loadTitleManagement() {
@@ -588,7 +598,17 @@ class AdminDashboard {
     }
 
     async loadSupervisorAssignment() {
-        try {
+        try {            // Show loading state
+            $('#admin-content').html(`
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-2xl font-bold mb-4">Loading Supervisor Assignment...</h2>
+                    <div class="text-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                        <p class="mt-4">Loading real-time supervisor capacity data...</p>
+                    </div>
+                </div>
+            `);
+
             const response = await $.ajax({
                 url: '/api/supervisor-assignment/needs-supervisor',
                 method: 'GET',
@@ -598,64 +618,68 @@ class AdminDashboard {
             const { allocations, supervisors } = response;
 
             let html = `
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Supervisor Assignment</h2>
-                    <div class="flex space-x-2">
-                        <button id="auto-assign-btn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-                            Auto-Assign All
-                        </button>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">Supervisor Assignment</h2>
+                        <div class="flex space-x-2">
+                            <button id="auto-assign-btn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                                Auto-Assign All
+                            </button>
+                            <button onclick="window.adminDashboard.refreshSupervisorAssignment()" 
+                                    class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                Refresh Data
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                        <div class="text-2xl font-bold text-yellow-700">${allocations.length}</div>
-                        <div class="text-sm text-yellow-600">Need Supervisor</div>
+                    <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-yellow-700">${allocations.length}</div>
+                            <div class="text-sm text-yellow-600">Need Supervisor</div>
+                        </div>
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-blue-700">${supervisors.length}</div>
+                            <div class="text-sm text-blue-600">Available Supervisors</div>
+                        </div>
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-gray-700">${supervisors.reduce((sum, s) => sum + s.remaining, 0)}</div>
+                            <div class="text-sm text-gray-600">Total Remaining Capacity</div>
+                        </div>
                     </div>
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                        <div class="text-2xl font-bold text-blue-700">${supervisors.length}</div>
-                        <div class="text-sm text-blue-600">Available Supervisors</div>
-                    </div>
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-                        <div class="text-2xl font-bold text-gray-700">${supervisors.reduce((sum, s) => sum + s.remaining, 0)}</div>
-                        <div class="text-sm text-gray-600">Total Remaining Capacity</div>
-                    </div>
-                </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
-                        <h3 class="text-lg font-semibold mb-4 text-yellow-700">Allocations Needing Supervisor</h3>
-        `;
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4 text-yellow-700">Allocations Needing Supervisor</h3>
+            `;
 
             if (allocations.length === 0) {
                 html += `
-                <div class="text-center py-8 text-gray-500">
-                    <p>No allocations need supervisor assignment.</p>
-                    <p class="mt-2">All students have been properly allocated.</p>
-                </div>
-            `;
+                    <div class="text-center py-8 text-gray-500">
+                        <p>No allocations need supervisor assignment.</p>
+                        <p class="mt-2">All students have been properly allocated.</p>
+                    </div>
+                `;
             } else {
                 html += `<div class="space-y-4">`;
                 allocations.forEach(allocation => {
                     html += `
-                    <div class="border border-yellow-300 bg-yellow-50 rounded-lg p-4">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <h4 class="font-semibold">${allocation.studentName}</h4>
-                                <p class="text-sm text-gray-600">ID: ${allocation.studentUsername}</p>
+                        <div class="border border-yellow-300 bg-yellow-50 rounded-lg p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <h4 class="font-semibold">${allocation.studentName}</h4>
+                                    <p class="text-sm text-gray-600">ID: ${allocation.studentUsername}</p>
+                                </div>
+                                <span class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">
+                                    Rank ${allocation.preferenceRank || 'N/A'}
+                                </span>
                             </div>
-                            <span class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">
-                                Rank ${allocation.preferenceRank}
-                            </span>
-                        </div>
-                        <p class="text-sm mb-2"><strong>Title:</strong> ${allocation.title}</p>
-                        <p class="text-sm mb-3"><strong>Original Supervisor:</strong> ${allocation.originalSupervisorName}</p>
-                        
-                        <div class="flex items-center space-x-2">
-                            <select class="supervisor-select border rounded px-3 py-1 text-sm" data-allocation-id="${allocation._id}">
-                                <option value="">Select Supervisor</option>
-                `;
+                            <p class="text-sm mb-2"><strong>Title:</strong> ${allocation.title}</p>
+                            <p class="text-sm mb-3"><strong>Original Supervisor:</strong> ${allocation.originalSupervisorName || 'Not assigned'}</p>
+                            
+                            <div class="flex items-center space-x-2">
+                                <select class="supervisor-select border rounded px-3 py-1 text-sm" data-allocation-id="${allocation._id}">
+                                    <option value="">Select Supervisor</option>
+                    `;
 
                     supervisors.forEach(supervisor => {
                         const status = supervisor.remaining > 0 ? '🟢' : '🔴';
@@ -663,14 +687,14 @@ class AdminDashboard {
                     });
 
                     html += `
-                            </select>
-                            <button class="assign-supervisor-btn bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
-                                    data-allocation-id="${allocation._id}">
-                                Assign
-                            </button>
+                                </select>
+                                <button class="assign-supervisor-btn bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                                        data-allocation-id="${allocation._id}">
+                                    Assign
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
                 });
                 html += `</div>`;
             }
@@ -678,49 +702,69 @@ class AdminDashboard {
             html += `
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold mb-4 text-blue-700">Supervisor Capacity</h3>
+                        <h3 class="text-lg font-semibold mb-4 text-blue-700">Supervisor Capacity (Real-time)</h3>
                         <div class="space-y-3">
-        `;
+            `;
 
             supervisors.forEach(supervisor => {
                 const percentage = supervisor.capacity > 0 ? (supervisor.current / supervisor.capacity) * 100 : 0;
                 const color = supervisor.remaining > 0 ? 'text-green-600' : 'text-red-600';
 
                 html += `
-                <div class="border rounded-lg p-3">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="font-medium">${supervisor.supervisor.name}</span>
-                        <span class="${color} font-semibold">${supervisor.remaining} remaining</span>
+                    <div class="border rounded-lg p-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-medium">${supervisor.supervisor.name}</span>
+                            <span class="${color} font-semibold">${supervisor.remaining} remaining</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-600 mt-1">
+                            <span>${supervisor.current}/${supervisor.capacity} students</span>
+                            <span>${Math.round(percentage)}% utilized</span>
+                        </div>
                     </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-blue-600 h-2 rounded-full" style="width: ${percentage}%"></div>
-                    </div>
-                    <div class="flex justify-between text-xs text-gray-600 mt-1">
-                        <span>${supervisor.current}/${supervisor.capacity} students</span>
-                        <span>${Math.round(percentage)}% utilized</span>
-                    </div>
-                </div>
-            `;
+                `;
             });
 
             html += `
                         </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
 
             $('#admin-content').html(html);
             this.attachSupervisorAssignmentEvents();
         } catch (error) {
             console.error('Error loading supervisor assignment:', error);
-            $('#admin-content').html('<div class="text-red-500">Error loading supervisor assignment</div>');
+            $('#admin-content').html(`
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-2xl font-bold mb-4 text-red-600">Error Loading Supervisor Assignment</h2>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <p class="text-red-800">Failed to load supervisor assignment data. Please try refreshing.</p>
+                        <button onclick="window.adminDashboard.loadSupervisorAssignment()" 
+                                class="mt-3 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                            Retry
+                        </button>
+                    </div>
+                </div>
+            `);
+        }
+    }
+
+    // NEW: Refresh method for supervisor assignment
+    async refreshSupervisorAssignment() {
+        try {
+            await this.loadSupervisorAssignment();
+            await SweetAlert.success('Supervisor assignment data refreshed!');
+        } catch (error) {
+            await SweetAlert.error('Error refreshing data: ' + error.message);
         }
     }
 
     attachSupervisorAssignmentEvents() {
         // Assign supervisor to specific allocation
-        $(document).on('click', '.assign-supervisor-btn', async (e) => {
+        $(document).off('click', '.assign-supervisor-btn').on('click', '.assign-supervisor-btn', async (e) => {
             const allocationId = $(e.target).data('allocation-id');
             const supervisorSelect = $(`select[data-allocation-id="${allocationId}"]`);
             const supervisorId = supervisorSelect.val();
@@ -740,7 +784,10 @@ class AdminDashboard {
                 });
 
                 await SweetAlert.success(`Supervisor assigned: ${response.supervisorName}`);
-                this.loadSupervisorAssignment();
+
+                // Refresh the view to show updated data
+                await this.loadSupervisorAssignment();
+
             } catch (error) {
                 await SweetAlert.error('Error assigning supervisor: ' + (error.responseJSON?.message || 'Unknown error'));
             }
@@ -756,6 +803,17 @@ class AdminDashboard {
             if (!result.isConfirmed) return;
 
             try {
+                // Show loading state
+                $('#admin-content').html(`
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-2xl font-bold mb-4">Auto-Assigning Supervisors...</h2>
+                        <div class="text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                            <p class="mt-4">Assigning supervisors to ${$('.assign-supervisor-btn').length} allocations...</p>
+                        </div>
+                    </div>
+                `);
+
                 const response = await $.ajax({
                     url: '/api/supervisor-assignment/auto-assign',
                     method: 'POST',
@@ -763,9 +821,13 @@ class AdminDashboard {
                 });
 
                 await SweetAlert.success(response.message);
-                this.loadSupervisorAssignment();
+                // Refresh the view to show updated data
+                await this.loadSupervisorAssignment();
+
             } catch (error) {
                 await SweetAlert.error('Error during auto-assignment: ' + (error.responseJSON?.message || 'Unknown error'));
+                // Reload the view even on error to show current state
+                await this.loadSupervisorAssignment();
             }
         });
     }
@@ -779,12 +841,7 @@ class AdminDashboard {
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
             });
 
-            // Also load supervisors for reassignment
-            const supervisors = await $.ajax({
-                url: '/api/users/supervisors',
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            });
+            const { conflicts, supervisors } = response;
 
             let html = `
             <div class="bg-white rounded-lg shadow p-6">
@@ -792,13 +849,13 @@ class AdminDashboard {
                     <h2 class="text-2xl font-bold">Capacity Conflict Resolution</h2>
                     <div class="text-sm text-gray-600">
                         <span class="bg-red-100 text-red-800 px-2 py-1 rounded">
-                            Conflicts: ${response.length}
+                            Conflicts: ${conflicts.length}
                         </span>
                     </div>
                 </div>
         `;
 
-            if (response.length === 0) {
+            if (conflicts.length === 0) {
                 html += `
                 <div class="text-center py-8 text-gray-500">
                     <div class="text-4xl mb-4">✅</div>
@@ -819,7 +876,7 @@ class AdminDashboard {
                 <div class="space-y-6">
             `;
 
-                response.forEach(conflict => {
+                conflicts.forEach(conflict => {
                     html += `
                     <div class="border border-red-300 bg-red-50 rounded-lg p-6">
                         <div class="flex justify-between items-start mb-4">
@@ -858,15 +915,13 @@ class AdminDashboard {
                                                 <option value="">Select available supervisor</option>
                 `;
 
-                    // Add supervisor options with capacity info
+                    // Add supervisor options with CORRECT capacity info
                     supervisors.forEach(supervisor => {
-                        const currentAllocs = conflict.supervisorCurrent; // Simplified - in real implementation, calculate current
-                        const capacity = supervisor.capacity || 0;
-                        const remaining = capacity - currentAllocs;
+                        const remaining = supervisor.remainingCapacity;
                         const status = remaining > 0 ? '🟢' : '🔴';
 
-                        html += `<option value="${supervisor._id}" ${remaining <= 0 ? 'disabled' : ''}>
-                                ${status} ${supervisor.name} (${remaining}/${capacity} remaining)
+                        html += `<option value="${supervisor.supervisorId}" ${remaining <= 0 ? 'disabled' : ''}>
+                                ${status} ${supervisor.supervisorName} (${remaining}/${supervisor.capacity} remaining)
                             </option>`;
                     });
 
@@ -902,6 +957,51 @@ class AdminDashboard {
                 });
 
                 html += `</div>`; // Close space-y-6
+
+                // Add supervisor summary table
+                html += `
+                <div class="mt-8">
+                    <h3 class="text-lg font-semibold mb-4">Supervisor Capacity Summary</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full table-auto">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-4 py-2 text-left">Supervisor</th>
+                                    <th class="px-4 py-2 text-left">Current</th>
+                                    <th class="px-4 py-2 text-left">Capacity</th>
+                                    <th class="px-4 py-2 text-left">Remaining</th>
+                                    <th class="px-4 py-2 text-left">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+                supervisors.forEach(supervisor => {
+                    const percentage = supervisor.capacity > 0 ? (supervisor.currentAllocations / supervisor.capacity) * 100 : 0;
+                    const status = supervisor.remainingCapacity > 0 ? 'Available' : 'Full';
+                    const statusColor = supervisor.remainingCapacity > 0 ? 'text-green-600' : 'text-red-600';
+
+                    html += `
+                    <tr class="border-t">
+                        <td class="px-4 py-2">${supervisor.supervisorName}</td>
+                        <td class="px-4 py-2">${supervisor.currentAllocations}</td>
+                        <td class="px-4 py-2">${supervisor.capacity}</td>
+                        <td class="px-4 py-2 ${statusColor} font-semibold">${supervisor.remainingCapacity}</td>
+                        <td class="px-4 py-2">
+                            <span class="px-2 py-1 rounded text-xs font-semibold ${status === 'Available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${status}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+                });
+
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
             }
 
             html += `</div>`; // Close main div
@@ -1050,7 +1150,8 @@ class AdminDashboard {
                     <h2 class="text-2xl font-bold mb-4">Generating Report</h2>
                     <div class="text-center">
                         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                        <p class="mt-4">Generating Excel report...</p>
+                        <p class="mt-4">Generating Excel report with latest allocation data...</p>
+                        <p class="text-sm text-gray-600">This may take a moment as we fetch real-time data</p>
                     </div>
                 </div>
             `);
@@ -1063,23 +1164,7 @@ class AdminDashboard {
 
             console.log('Making report request with token:', token.substring(0, 20) + '...');
 
-            // Test the endpoint first
-            const testResponse = await fetch('/api/reports/test', {
-                method: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + token,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!testResponse.ok) {
-                const errorData = await testResponse.json();
-                throw new Error(`Authentication failed: ${errorData.message}`);
-            }
-
-            console.log('Test passed, generating report...');
-
-            // Now generate the actual report
+            // Generate the actual report (NO NEED FOR SEPARATE REFRESH - backend uses real-time data)
             const response = await fetch('/api/reports/excel', {
                 method: 'GET',
                 headers: {
@@ -1143,8 +1228,7 @@ class AdminDashboard {
                             Size: <strong>${(blob.size / 1024).toFixed(2)} KB</strong>
                         </p>
                         <p class="text-green-600 text-sm mt-2">
-                            The report contains all student-supervisor-title allocations.
-                            Custom titles are marked with an asterisk (*).
+                            The report contains the latest allocation data with real-time supervisor capacity information.
                         </p>
                     </div>
                     <div class="mt-4">
@@ -1195,6 +1279,7 @@ class AdminDashboard {
             `);
         }
     }
+
 
     // STUDENT CHOICES WITH SEARCH AND FILTER
     async loadStudentChoices() {
@@ -1838,3 +1923,6 @@ class AdminDashboard {
         }
     }
 }
+
+// Make it globally available
+window.AdminDashboard = AdminDashboard;

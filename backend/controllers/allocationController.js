@@ -197,19 +197,9 @@ const calculateSupervisorCapacity = (allocations, supervisors) => {
 
 // Modified allocation algorithm to handle supervisor capacity
 class EnhancedGaleShapleyAllocation extends GaleShapleyAllocation {
-  constructor(students, titles, supervisors) {
+  constructor(students, titles, supervisorCapacity) { // Changed parameter name for clarity
     super(students, titles);
-    this.supervisors = supervisors;
-    this.supervisorCapacity = new Map();
-
-    // Initialize supervisor capacity
-    supervisors.forEach(supervisor => {
-      this.supervisorCapacity.set(supervisor._id.toString(), {
-        capacity: supervisor.capacity || 0,
-        current: 0,
-        remaining: supervisor.capacity || 0
-      });
-    });
+    this.supervisorCapacity = supervisorCapacity; // Use the pre-calculated capacity map
   }
 
   run() {
@@ -243,18 +233,25 @@ class EnhancedGaleShapleyAllocation extends GaleShapleyAllocation {
         continue;
       }
 
-      const supervisorId = title.supervisorId.toString();
-      const supervisorCap = this.supervisorCapacity.get(supervisorId);
+      const supervisorId = title.supervisorId ? title.supervisorId.toString() : null;
 
-      if (!this.allocations.has(titleId) && supervisorCap.remaining > 0) {
-        // Title is free and supervisor has capacity
-        this.allocations.set(titleId, student);
-        this.studentMatches.set(studentId, titleId);
-        supervisorCap.current++;
-        supervisorCap.remaining--;
-        freeStudents.shift();
+      // Check if supervisor exists and has capacity
+      if (supervisorId && this.supervisorCapacity.has(supervisorId)) {
+        const supervisorCap = this.supervisorCapacity.get(supervisorId);
+
+        if (!this.allocations.has(titleId) && supervisorCap.remaining > 0) {
+          // Title is free and supervisor has capacity
+          this.allocations.set(titleId, student);
+          this.studentMatches.set(studentId, titleId);
+          supervisorCap.current++;
+          supervisorCap.remaining--;
+          freeStudents.shift();
+        } else {
+          // Title is allocated or supervisor has no capacity
+          proposals.set(studentId, proposalIndex + 1);
+        }
       } else {
-        // Title is allocated or supervisor has no capacity
+        // Supervisor doesn't exist or title has no supervisor assigned
         proposals.set(studentId, proposalIndex + 1);
       }
     }
@@ -266,8 +263,7 @@ class EnhancedGaleShapleyAllocation extends GaleShapleyAllocation {
   }
 }
 
-
-// Update the custom title allocation section in runAllocation function
+// Update the runAllocation function to properly prepare supervisor capacity
 const runAllocation = async (req, res) => {
   try {
     // Clear previous allocations
@@ -287,9 +283,28 @@ const runAllocation = async (req, res) => {
       return res.status(400).json({ message: 'No approved titles found' });
     }
 
-    // Handle APPROVED custom titles first
+    // Create supervisor capacity map PROPERLY
+    const supervisorCapacity = new Map();
+    supervisors.forEach(supervisor => {
+      // SAFE CHECK: Ensure supervisor has _id before using it
+      if (supervisor && supervisor._id) {
+        supervisorCapacity.set(supervisor._id.toString(), {
+          capacity: supervisor.capacity || 0,
+          current: 0,
+          remaining: supervisor.capacity || 0,
+          supervisorName: supervisor.name
+        });
+      } else {
+        console.warn('Skipping invalid supervisor:', supervisor);
+      }
+    });
+
+    console.log(`Initialized capacity for ${supervisorCapacity.size} supervisors`);
+
+    // Handle APPROVED custom titles with capacity validation
     const customTitleAllocations = [];
     const studentsWithApprovedCustomTitles = new Set();
+    const capacityConflicts = [];
 
     for (const pref of preferences) {
       if (pref.customTitle && pref.customTitle.status === 'approved') {
@@ -303,25 +318,52 @@ const runAllocation = async (req, res) => {
             supervisors.find(s => s.name === pref.customTitle.supervisorName);
         }
 
-        if (supervisor && student) {
-          customTitleAllocations.push({
-            studentId: pref.studentId,
-            studentName: student.name,
-            studentUsername: student.username,
-            titleId: new ObjectId(),
-            title: pref.customTitle.title + '*',
-            supervisorId: supervisor._id,
-            supervisorName: supervisor.name,
-            isCustomTitle: true,
-            isApprovedCustomTitle: true,
-            needsSupervisor: false
-          });
-          studentsWithApprovedCustomTitles.add(pref.studentId.toString());
+        if (supervisor && student && supervisor._id) {
+          const supervisorId = supervisor._id.toString();
+
+          // SAFE CHECK: Ensure supervisor exists in capacity map
+          if (supervisorCapacity.has(supervisorId)) {
+            const cap = supervisorCapacity.get(supervisorId);
+
+            if (cap.current < cap.capacity) {
+              // Supervisor has capacity - allocate custom title
+              customTitleAllocations.push({
+                studentId: pref.studentId,
+                studentName: student.name,
+                studentUsername: student.username,
+                titleId: new ObjectId(),
+                title: pref.customTitle.title + '*',
+                supervisorId: supervisor._id,
+                supervisorName: supervisor.name,
+                isCustomTitle: true,
+                isApprovedCustomTitle: true,
+                needsSupervisor: false
+              });
+              studentsWithApprovedCustomTitles.add(pref.studentId.toString());
+              cap.current++; // Update capacity usage
+              cap.remaining--;
+            } else {
+              // Supervisor at capacity - flag for admin decision
+              capacityConflicts.push({
+                studentId: pref.studentId,
+                studentName: student.name,
+                studentUsername: student.username,
+                customTitle: pref.customTitle.title,
+                preferredSupervisorId: supervisor._id,
+                preferredSupervisorName: supervisor.name,
+                supervisorCapacity: cap.capacity,
+                supervisorCurrent: cap.current,
+                conflictType: 'CAPACITY_EXCEEDED'
+              });
+            }
+          } else {
+            console.warn(`Supervisor ${supervisor.name} not found in capacity map`);
+          }
         }
       }
     }
 
-    // Prepare student data for regular allocation
+    // Prepare student data for regular allocation (excluding students with approved custom titles)
     const studentData = await Promise.all(
       preferences
         .filter(pref => !studentsWithApprovedCustomTitles.has(pref.studentId.toString()))
@@ -339,12 +381,12 @@ const runAllocation = async (req, res) => {
         })
     );
 
-    // Run enhanced Gale-Shapley for regular titles
+    // Run enhanced Gale-Shapley for regular titles with capacity constraints
     let regularAllocations = [];
     let unmatchedStudents = [];
 
     if (studentData.length > 0) {
-      const algorithm = new EnhancedGaleShapleyAllocation(studentData, approvedTitles, supervisors);
+      const algorithm = new EnhancedGaleShapleyAllocation(studentData, approvedTitles, supervisorCapacity);
       const result = algorithm.run();
       regularAllocations = result.allocations;
       unmatchedStudents = result.unmatchedStudents;
@@ -368,7 +410,7 @@ const runAllocation = async (req, res) => {
             title: title.title,
             originalSupervisorId: title.supervisorId,
             originalSupervisorName: title.supervisorName,
-            supervisorId: null, // Will be assigned by admin
+            supervisorId: null,
             supervisorName: null,
             isCustomTitle: false,
             needsSupervisor: true,
@@ -393,24 +435,34 @@ const runAllocation = async (req, res) => {
       studentsWithApprovedCustomTitles: customTitleAllocations.length,
       studentsWithRegularAllocations: regularAllocations.length,
       studentsNeedingSupervisor: needsSupervisorAllocations.length,
+      capacityConflicts: capacityConflicts.length,
       unmatchedStudents: unmatchedStudents.length,
+      supervisorUtilization: Array.from(supervisorCapacity.values()).map(cap => ({
+        supervisorName: cap.supervisorName,
+        current: cap.current,
+        capacity: cap.capacity,
+        utilization: cap.capacity > 0 ? ((cap.current / cap.capacity) * 100).toFixed(1) + '%' : '0%'
+      })),
       preferenceDistribution: calculatePreferenceStats(regularAllocations)
     };
 
     res.json({
-      message: 'Allocation completed successfully',
+      message: capacityConflicts.length > 0 ?
+        `Allocation completed with ${capacityConflicts.length} capacity conflicts requiring admin decision` :
+        'Allocation completed successfully',
       allocations: allAllocations.length,
+      capacityConflicts: capacityConflicts,
       statistics: stats
     });
+
     // Set allocation as completed
     await SystemSettings.setAllocationCompleted(true);
-    
+
   } catch (error) {
     console.error('Allocation error:', error);
     res.status(500).json({ message: 'Allocation failed: ' + error.message });
   }
 };
-
 
 // Helper function to calculate preference statistics
 function calculatePreferenceStats(allocations) {
