@@ -1,75 +1,71 @@
-# Title Allocation System
+# 🎓 Title Allocation System
 
-A web application for allocating project titles to students using the Gale-Shapley algorithm.
+A comprehensive web-based system for managing student project title allocations, supervisor assignments, custom title proposals, and second marker assignments. Built with **Node.js**, **MongoDB**, and a **JavaScript frontend** using **TailwindCSS**, **jQuery**, and **SweetAlert2**.
 
-## Features
+---
 
-- **Three User Roles**: Admin, Supervisor, Student
-- **Title Management**: Supervisors can propose titles, Admins can approve/reject
-- **Student Preferences**: Students select top 5 title preferences
-- **Automatic Allocation**: Gale-Shapley algorithm with first-come-first-served tie-breaking
-- **Excel Report Generation**: Download allocation results
-- **Responsive Design**: Works on desktop, tablet, and mobile
+## 🚀 Features
 
-## Technology Stack
+### 🔐 Authentication & Roles
+- JWT-based login system
+- Role-based access: **Admin**, **Supervisor**, **Student**
 
-- **Frontend**: HTML, CSS (Tailwind), JavaScript, jQuery
-- **Backend**: Node.js, Express.js
-- **Database**: MongoDB (native driver)
-- **Authentication**: JWT with bcrypt password hashing
+### 📋 Student Preferences
+- Submit exactly 5 ranked title preferences
+- Propose custom titles with supervisor suggestions
+- Deadline enforcement for preference submission
 
-## Installation
+### 🧠 Allocation Engine
+- **Gale-Shapley Algorithm** for stable matching
+- Enhanced with **supervisor capacity constraints**
+- Handles custom titles, unmatched students, and generates allocation statistics
 
-1. Extract the zip file
-2. Navigate to the project directory
-3. Install dependencies:
-   ```bash
-   npm install
+### 👨‍🏫 Supervisor Assignment
+- Manual and auto-assignment for unmatched allocations
+- Real-time supervisor capacity tracking
 
+### 🧪 Second Marker Assignment
+- Balanced workload distribution
+- Avoids self-marking and minimizes unique supervisor pairs
 
-   title-allocation
-├── .gitignore
+### 📊 Reporting
+- Excel export with:
+  - Allocation summary
+  - Supervisor capacity utilization
+  - VIVA plan with second marker assignments
+
+### 🔔 Notifications
+- Students receive allocation notifications
+- Mark notifications as read or bulk clear
+
+### ⚙️ Admin Dashboard
+- Manage titles, users, preferences, system settings
+- Resolve capacity conflicts
+- View and filter finalized allocations
+---
+
+## 🧱 Tech Stack
+
+- **Backend**: Node.js, Express, MongoDB
+- **Frontend**: HTML, TailwindCSS, jQuery, SweetAlert2
+- **Authentication**: JWT
+- **Data Export**: XLSX (Excel)
+
+---
+
+## 📁 Project Structure
 ├── backend
-    ├── config
-    │   └── database.js
-    ├── controllers
-    │   ├── allocationController.js
-    │   └── authController.js
-    ├── middleware
-    │   └── auth.js
-    ├── models
-    │   ├── Allocation.js
-    │   ├── Preference.js
-    │   ├── SystemSettings.js
-    │   ├── Title.js
-    │   └── User.js
-    ├── routes
-    │   ├── allocationRoutes.js
-    │   ├── authRoutes.js
-    │   ├── capacityConflictRoutes.js
-    │   ├── customTitleRoutes.js
-    │   ├── notificationRoutes.js
-    │   ├── preferenceRoutes.js
-    │   ├── reportRoutes.js
-    │   ├── supervisorAssignmentRoutes.js
-    │   ├── systemSettingsRoutes.js
-    │   ├── titleRoutes.js
-    │   └── userRoutes.js
-    └── server.js
-├── create_admin.js
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── models/
+│   ├── routes/
+│   └── server.js
 ├── frontend
-    ├── css
-    │   └── styles.css
-    ├── index.html
-    └── js
-    │   ├── admin.js
-    │   ├── app.js
-    │   ├── auth.js
-    │   ├── student.js
-    │   ├── supervisor.js
-    │   └── utils.js
-├── package-lock.json
+│   ├── css/
+│   ├── js/
+│   └── index.html
+├── create_admin.js
+├── users_template.csv
 ├── package.json
-├── readme.md
-├── test_mongo.js
-└── users_template.csv
+└── README.md
