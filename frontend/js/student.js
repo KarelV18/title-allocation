@@ -7,6 +7,8 @@ class StudentDashboard {
         this.loadDashboard();
         this.attachEventListeners();
         this.checkAllocationStatus();
+        this.checkNotifications();
+
     }
 
     attachEventListeners() {
@@ -19,27 +21,152 @@ class StudentDashboard {
         $(document).on('submit', '#custom-title-form', (e) => this.handleCustomTitle(e));
     }
 
-    loadDashboard() {
-        const content = $('#content');
-        content.html(`
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    // loadDashboard() {
+    //     const content = $('#content');
+    //     content.html(`
+    //         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    //             <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="select-preferences-card">
+    //                 <h3 class="text-lg font-semibold mb-2">Select Preferences</h3>
+    //                 <p class="text-gray-600 text-sm">Choose your top 5 title preferences</p>
+    //             </div>
+    //             <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="view-allocation-card">
+    //                 <h3 class="text-lg font-semibold mb-2">My Allocation</h3>
+    //                 <p class="text-gray-600 text-sm">View your allocated title and supervisor</p>
+    //             </div>
+    //         </div>
+    //         <div id="student-content" class="mt-6"></div>
+    //     `);
+
+    //     $('#select-preferences-card').on('click', () => this.loadTitleSelection());
+    //     $('#view-allocation-card').on('click', () => this.loadMyAllocation());
+
+    //     // Load allocation by default
+    //     this.loadMyAllocation();
+    // }
+    async loadDashboard() {
+        try {
+            // Check system settings and allocation status
+            const [settings, allocation, canEditResponse] = await Promise.all([
+                $.ajax({
+                    url: '/api/system-settings',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }).catch(() => ({ preferenceDeadline: null, allocationCompleted: false })),
+
+                $.ajax({
+                    url: '/api/allocations',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }).catch(() => null),
+
+                $.ajax({
+                    url: '/api/system-settings/can-edit-preferences',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }).catch(() => ({ canEdit: true, allocationCompleted: false }))
+            ]);
+
+            // FIXED LOGIC: Students can edit preferences if deadline hasn't passed
+            // Allocation existence doesn't affect preference selection
+            const canEditPreferences = canEditResponse.canEdit;
+            const canViewAllocation = allocation && settings.allocationCompleted;
+
+            let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">`;
+
+            // Select Preferences Card - only show if deadline hasn't passed
+            if (canEditPreferences) {
+                html += `
                 <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="select-preferences-card">
                     <h3 class="text-lg font-semibold mb-2">Select Preferences</h3>
                     <p class="text-gray-600 text-sm">Choose your top 5 title preferences</p>
+                    ${settings.preferenceDeadline ? `
+                        <p class="text-xs text-orange-600 mt-2">
+                            ⏰ Deadline: ${new Date(settings.preferenceDeadline).toLocaleString()}
+                        </p>
+                    ` : ''}
+                    ${allocation ? `
+                        <p class="text-xs text-blue-600 mt-1">
+                            ℹ️ You can update your preferences until the deadline
+                        </p>
+                    ` : ''}
                 </div>
-                <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="view-allocation-card">
+            `;
+            }
+
+            // My Allocation Card - only show if allocation exists and is marked as completed
+            if (canViewAllocation) {
+                html += `
+                <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow ${allocation.isCustomTitle ? 'bg-green-50 border border-green-200' : ''}" id="view-allocation-card">
                     <h3 class="text-lg font-semibold mb-2">My Allocation</h3>
                     <p class="text-gray-600 text-sm">View your allocated title and supervisor</p>
+                    ${allocation.isCustomTitle ? `
+                        <p class="text-xs text-green-600 mt-1">✓ Custom Title Approved</p>
+                    ` : ''}
+                </div>
+            `;
+            }
+
+            // If no cards are available, show appropriate message
+            if (!canEditPreferences && !canViewAllocation) {
+                let message = '';
+                let icon = '⏰';
+
+                if (settings.preferenceDeadline && new Date() > new Date(settings.preferenceDeadline)) {
+                    message = 'The preference selection period has ended.';
+                    icon = '🔒';
+                } else if (settings.allocationCompleted && !allocation) {
+                    message = 'Allocation is completed but no allocation found for you. Please contact administrator.';
+                    icon = '❓';
+                } else {
+                    message = 'Allocation is in progress. Please check back later to view your allocation.';
+                    icon = '⏳';
+                }
+
+                html = `
+                <div class="bg-white rounded-lg shadow p-6 text-center">
+                    <div class="py-8">
+                        <div class="text-4xl mb-4">${icon}</div>
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2">No Actions Available</h3>
+                        <p class="text-gray-600">${message}</p>
+                        ${settings.preferenceDeadline && new Date() > new Date(settings.preferenceDeadline) ? `
+                            <p class="text-sm text-gray-500 mt-2">
+                                Deadline was: ${new Date(settings.preferenceDeadline).toLocaleString()}
+                            </p>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            }
+
+            html += `</div><div id="student-content" class="mt-6"></div>`;
+            $('#content').html(html);
+
+
+            // Attach event listeners conditionally
+            if (canEditPreferences) {
+                $('#select-preferences-card').on('click', () => this.loadTitleSelection());
+            }
+            if (canViewAllocation) {
+                $('#view-allocation-card').on('click', () => this.loadMyAllocation());
+            }
+
+            // Auto-load appropriate content
+            if (canViewAllocation) {
+                this.loadMyAllocation();
+            } else if (canEditPreferences) {
+                // Load title selection by default if allowed
+                this.loadTitleSelection();
+            }
+        } catch (error) {
+            console.error('Error loading student dashboard:', error);
+            $('#content').html(`
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="text-center py-8 text-red-500">
+                    <p>Error loading dashboard. Please refresh the page.</p>
                 </div>
             </div>
-            <div id="student-content" class="mt-6"></div>
         `);
-
-        $('#select-preferences-card').on('click', () => this.loadTitleSelection());
-        $('#view-allocation-card').on('click', () => this.loadMyAllocation());
-
-        // Load allocation by default
-        this.loadMyAllocation();
+        }
     }
 
     async checkAllocationStatus() {
@@ -192,6 +319,24 @@ class StudentDashboard {
 
     async loadTitleSelection() {
         try {
+
+            // Check if still allowed to edit
+            const canEditResponse = await $.ajax({
+                url: '/api/system-settings/can-edit-preferences',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            if (!canEditResponse.canEdit) {
+                await SweetAlert.error(
+                    'Editing Disabled',
+                    'The deadline for editing preferences has passed. You can no longer modify your preferences.'
+                );
+                this.loadDashboard(); // Go back to dashboard
+                return;
+            }
+
+            // Continue with existing title selection loading...
             // Load supervisors for dropdown and grouping
             const supervisors = await this.loadSupervisors();
 
@@ -219,13 +364,30 @@ class StudentDashboard {
                 `<option value="${supervisor.name}" data-username="${supervisor.username}">${supervisor.name}</option>`
             ).join('');
 
+
+            // Get system settings for deadline display
+            const settings = await $.ajax({
+                url: '/api/system-settings',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            }).catch(() => ({ preferenceDeadline: null }));
+
             let html = `
             <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-2xl font-bold mb-6">Select Your Top 5 Title Preferences</h2>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Select Your Top 5 Title Preferences</h2>
+                    ${settings.preferenceDeadline ? `
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                            <p class="text-blue-700 text-sm">
+                                <strong>Deadline:</strong> ${new Date(settings.preferenceDeadline).toLocaleString()}
+                            </p>
+                        </div>
+                    ` : ''}
+                </div>
                 
                 ${existingPreferences ? `
                     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                        <p class="text-yellow-800">You have already submitted your preferences. You can update them until the allocation process runs.</p>
+                        <p class="text-yellow-800">You have already submitted your preferences. You can update them until the deadline.</p>
                     </div>
                 ` : ''}
 
@@ -257,6 +419,7 @@ class StudentDashboard {
                     </div>
                 </div>
 
+                <!-- Rest of the existing title selection HTML remains the same -->
                 <div class="bg-gray-50 rounded-lg p-6 mb-6">
                     <h3 class="text-lg font-semibold mb-4">Your Selected Preferences</h3>
                     <div id="selected-preferences" class="space-y-3">
@@ -300,7 +463,12 @@ class StudentDashboard {
                     </div>
                 </div>
 
-                <div class="flex justify-end">
+                <div class="flex justify-between items-center">
+                    <div class="text-sm text-gray-600">
+                        ${settings.preferenceDeadline ? `
+                            <p>⏰ You can edit preferences until: <strong>${new Date(settings.preferenceDeadline).toLocaleString()}</strong></p>
+                        ` : 'No deadline set'}
+                    </div>
                     <button id="submit-preferences-btn" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
                             ${this.selectedPreferences?.length === 5 ? '' : 'disabled'}>
                         ${existingPreferences ? 'Update Preferences' : 'Submit Preferences'}
@@ -340,7 +508,6 @@ class StudentDashboard {
             $('#student-content').html('<div class="text-red-500">Error loading available titles</div>');
         }
     }
-
 
     async loadSupervisors() {
         try {
@@ -442,22 +609,22 @@ class StudentDashboard {
     }
 
 
-// Update the removePreference method
-removePreference(titleId) {
-    // Remove from selected preferences
-    this.selectedPreferences = this.selectedPreferences.filter(pref => pref.titleId !== titleId);
-    
-    // Update ranks and UI
-    this.updateRanks();
-    this.updateSelectedPreferencesUI(); // This will now properly update the title cards
-    
-    // Show appropriate message
-    const remaining = 5 - this.selectedPreferences.length;
-    if (remaining > 0) {
-        const titleWord = remaining === 1 ? 'title' : 'titles';
-        SweetAlert.info('Title removed', `You can now select ${remaining} more ${titleWord} to complete your 5 preferences.`);
+    // Update the removePreference method
+    removePreference(titleId) {
+        // Remove from selected preferences
+        this.selectedPreferences = this.selectedPreferences.filter(pref => pref.titleId !== titleId);
+
+        // Update ranks and UI
+        this.updateRanks();
+        this.updateSelectedPreferencesUI(); // This will now properly update the title cards
+
+        // Show appropriate message
+        const remaining = 5 - this.selectedPreferences.length;
+        if (remaining > 0) {
+            const titleWord = remaining === 1 ? 'title' : 'titles';
+            SweetAlert.info('Title removed', `You can now select ${remaining} more ${titleWord} to complete your 5 preferences.`);
+        }
     }
-}
 
 
     updateRanks() {
@@ -499,6 +666,60 @@ removePreference(titleId) {
 
         this.updateSubmitButton();
     }
+
+    async checkNotifications() {
+        try {
+            const notifications = await $.ajax({
+                url: '/api/notifications/unread',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            if (notifications.length > 0) {
+                this.showNotificationAlert(notifications);
+            }
+        } catch (error) {
+            console.error('Error checking notifications:', error);
+        }
+    }
+
+    showNotificationAlert(notifications) {
+        const notificationCount = notifications.length;
+        const titleWord = notificationCount === 1 ? 'title' : 'titles';
+
+        Swal.fire({
+            icon: 'info',
+            title: 'Allocation Update!',
+            html: `
+            <p>You have been allocated to ${notificationCount} project ${titleWord}.</p>
+            <p class="mt-2 text-sm text-gray-600">Check "My Allocation" to view your assigned project and supervisor.</p>
+        `,
+            confirmButtonText: 'View My Allocation',
+            showCancelButton: true,
+            cancelButtonText: 'Mark as Read',
+            allowOutsideClick: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                this.loadMyAllocation();
+            }
+
+            // Mark all as read regardless of user choice
+            this.markAllNotificationsAsRead();
+        });
+    }
+
+    async markAllNotificationsAsRead() {
+        try {
+            await $.ajax({
+                url: '/api/notifications/mark-all-read',
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+        } catch (error) {
+            console.error('Error marking notifications as read:', error);
+        }
+    }
+
 
     updateSubmitButton() {
         const submitBtn = $('#submit-preferences-btn');
@@ -615,33 +836,59 @@ removePreference(titleId) {
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
             });
 
-            // Get current preferences to check custom title status
-            const preferences = await $.ajax({
-                url: '/api/preferences',
+            const settings = await $.ajax({
+                url: '/api/system-settings',
                 method: 'GET',
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            });
+            }).catch(() => ({ allocationCompleted: false }));
 
             let html = `
             <div class="bg-white rounded-lg shadow p-6">
                 <h2 class="text-2xl font-bold mb-6">My Allocation</h2>
         `;
 
-            // Show custom title status if student has one
-            if (preferences && preferences.customTitle) {
-                const customTitle = preferences.customTitle;
+            // Check if allocation exists and is completed
+            if (!allocation || !settings.allocationCompleted) {
                 html += `
+                <div class="text-center py-8">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 inline-block">
+                        <svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p class="text-yellow-800 font-semibold">Allocation In Progress</p>
+                        <p class="mt-2 text-yellow-700">Your project allocation is being processed. Please check back later.</p>
+                    </div>
+                </div>
+            `;
+            } else {
+
+                // Get current preferences to check custom title status
+                const preferences = await $.ajax({
+                    url: '/api/preferences',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                });
+
+                let html = `
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-2xl font-bold mb-6">My Allocation</h2>
+        `;
+
+                // Show custom title status if student has one
+                if (preferences && preferences.customTitle) {
+                    const customTitle = preferences.customTitle;
+                    html += `
                 <div class="mb-6 p-4 border rounded-lg ${customTitle.status === 'approved' ? 'bg-green-50 border-green-200' :
-                        customTitle.status === 'rejected' ? 'bg-red-50 border-red-200' :
-                            'bg-yellow-50 border-yellow-200'
-                    }">
+                            customTitle.status === 'rejected' ? 'bg-red-50 border-red-200' :
+                                'bg-yellow-50 border-yellow-200'
+                        }">
                     <h3 class="font-semibold mb-2">Custom Title Status</h3>
                     <p><strong>Title:</strong> ${customTitle.title}*</p>
                     <p><strong>Status:</strong> 
                         <span class="font-semibold ${customTitle.status === 'approved' ? 'text-green-700' :
-                        customTitle.status === 'rejected' ? 'text-red-700' :
-                            'text-yellow-700'
-                    }">
+                            customTitle.status === 'rejected' ? 'text-red-700' :
+                                'text-yellow-700'
+                        }">
                             ${customTitle.status ? customTitle.status.charAt(0).toUpperCase() + customTitle.status.slice(1) : 'Pending'}
                         </span>
                     </p>
@@ -657,10 +904,10 @@ removePreference(titleId) {
                     ` : ''}
                 </div>
             `;
-            }
+                }
 
-            if (!allocation) {
-                html += `
+                if (!allocation) {
+                    html += `
                 <div class="text-center py-8">
                     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 inline-block">
                         <p class="text-yellow-800">No allocation has been made yet.</p>
@@ -668,8 +915,8 @@ removePreference(titleId) {
                     </div>
                 </div>
             `;
-            } else {
-                html += `
+                } else {
+                    html += `
                 <div class="bg-green-50 border border-green-200 rounded-lg p-6 max-w-2xl mx-auto">
                     <div class="text-center mb-6">
                         <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -708,6 +955,7 @@ removePreference(titleId) {
                     ` : ''}
                 </div>
             `;
+                }
             }
 
             html += `</div>`;

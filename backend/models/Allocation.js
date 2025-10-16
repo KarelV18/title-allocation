@@ -41,11 +41,28 @@ class Allocation {
       needsSupervisor: allocationData.needsSupervisor || false,
       isTop3: allocationData.isTop3 || false,
       preferenceRank: allocationData.preferenceRank || null,
+      notified: allocationData.notified || false, // Add this line
       allocatedAt: new Date()
     };
 
     const result = await this.collection().insertOne(allocation);
     return { ...allocation, _id: result.insertedId };
+  }
+
+  // Add method to mark allocation as notified
+  static async markAsNotified(allocationId) {
+    return await this.collection().updateOne(
+      { _id: new ObjectId(allocationId) },
+      { $set: { notified: true, notifiedAt: new Date() } }
+    );
+  }
+
+  // Add method to get unread notifications for student
+  static async getUnreadNotifications(studentId) {
+    return await this.collection().find({
+      studentId: new ObjectId(studentId),
+      notified: false
+    }).toArray();
   }
 
   static async findByStudent(studentId) {

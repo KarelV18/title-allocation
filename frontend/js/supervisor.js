@@ -123,8 +123,8 @@ class SupervisorDashboard {
                             <input type="text" id="title-input" class="w-full border rounded px-3 py-2" required>
                         </div>
                         <div class="mb-4">
-                            <label class="block text-sm font-medium mb-2">Description *</label>
-                            <textarea id="description-input" class="w-full border rounded px-3 py-2" rows="4" required></textarea>
+                            <label class="block text-sm font-medium mb-2">Description</label>
+                            <textarea id="description-input" class="w-full border rounded px-3 py-2" rows="4"></textarea>
                         </div>
                         <div class="flex justify-end space-x-2">
                             <button type="button" id="cancel-add-title" class="px-4 py-2 border rounded hover:bg-gray-50">
@@ -152,10 +152,8 @@ class SupervisorDashboard {
         const title = $('#title-input').val();
         const description = $('#description-input').val();
 
-        if (!title.trim() || !description.trim()) {
-            await SweetAlert.error('Please fill in all fields');
-
-            // alert('Please fill in all fields');
+        if (!title.trim()) {
+            await SweetAlert.error('Please enter a title');
             return;
         }
 
@@ -165,7 +163,10 @@ class SupervisorDashboard {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
                 contentType: 'application/json',
-                data: JSON.stringify({ title, description })
+                data: JSON.stringify({
+                    title: title.trim(),
+                    description: description.trim() || 'No description provided'
+                })
             });
 
             $('#add-title-modal').remove();

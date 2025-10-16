@@ -11,6 +11,9 @@ const allocationRoutes = require('./routes/allocationRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const customTitleRoutes = require('./routes/customTitleRoutes');
 const supervisorAssignmentRoutes = require('./routes/supervisorAssignmentRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const systemSettingsRoutes = require('./routes/systemSettingsRoutes');
+const capacityConflictRoutes = require('./routes/capacityConflictRoutes');
 
 
 const { connectDB } = require('./config/database');
@@ -32,6 +35,9 @@ app.use('/api/allocations', allocationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/custom-titles', customTitleRoutes);
 app.use('/api/supervisor-assignment', supervisorAssignmentRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/system-settings', systemSettingsRoutes);
+app.use('/api/capacity-conflicts', capacityConflictRoutes);
 
 
 // Serve frontend

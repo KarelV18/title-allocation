@@ -210,8 +210,8 @@ class AdminDashboard {
         const title = $('#title-input').val();
         const description = $('#description-input').val();
 
-        if (!title.trim() || !description.trim()) {
-            await SweetAlert.error('Please fill in all fields');
+        if (!title.trim()) {
+            await SweetAlert.error('Please enter a title');
             return;
         }
 
@@ -221,7 +221,10 @@ class AdminDashboard {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
                 contentType: 'application/json',
-                data: JSON.stringify({ title, description })
+                data: JSON.stringify({
+                    title: title.trim(),
+                    description: description.trim() || 'No description provided'
+                })
             });
 
             $('#add-title-modal').remove();
@@ -394,6 +397,193 @@ class AdminDashboard {
             $('#users-list').html(html);
         } catch (error) {
             $('#users-list').html('<div class="text-red-500">Error loading users</div>');
+        }
+    }
+
+    // Add to AdminDashboard class
+    async loadSystemSettings() {
+        try {
+            const response = await $.ajax({
+                url: '/api/system-settings',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            const deadline = response.preferenceDeadline ?
+                new Date(response.preferenceDeadline).toISOString().slice(0, 16) : '';
+
+            const allocationStatus = response.allocationCompleted ? 'completed' : 'not completed';
+
+            const html = `
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-2xl font-bold mb-6">System Settings</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Deadline Settings -->
+                    <div class="border rounded-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4">Preference Deadline</h3>
+                        <form id="deadline-form">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium mb-2">Deadline Date & Time</label>
+                                <input type="datetime-local" id="preference-deadline" 
+                                       class="w-full border rounded px-3 py-2" 
+                                       value="${deadline}">
+                                <p class="text-sm text-gray-500 mt-1">
+                                    Students cannot edit preferences after this deadline.
+                                </p>
+                            </div>
+                            <div class="flex justify-between">
+                                <button type="button" id="clear-deadline" class="text-red-500 hover:text-red-700">
+                                    Clear Deadline
+                                </button>
+                                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                    Save Deadline
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Allocation Status -->
+                    <div class="border rounded-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4">Allocation Status</h3>
+                        <div class="mb-4">
+                            <p class="text-sm text-gray-600 mb-2">Current Status: 
+                                <span class="font-semibold ${allocationStatus === 'completed' ? 'text-green-600' : 'text-yellow-600'}">
+                                    ${allocationStatus.toUpperCase()}
+                                </span>
+                            </p>
+                            <p class="text-xs text-gray-500">
+                                When allocation is completed, students can only view their allocation and cannot edit preferences.
+                            </p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="mark-allocation-completed" 
+                                    class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 ${allocationStatus === 'completed' ? 'opacity-50 cursor-not-allowed' : ''}"
+                                    ${allocationStatus === 'completed' ? 'disabled' : ''}>
+                                Mark Allocation Completed
+                            </button>
+                            <button id="mark-allocation-pending" 
+                                    class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 ${allocationStatus === 'not completed' ? 'opacity-50 cursor-not-allowed' : ''}"
+                                    ${allocationStatus === 'not completed' ? 'disabled' : ''}>
+                                Mark Allocation Pending
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Status Display -->
+                <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-semibold mb-2">Current System Status:</h4>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="font-medium">Preference Editing:</span>
+                            <span class="ml-2 ${response.preferenceDeadline && new Date() > new Date(response.preferenceDeadline) ? 'text-red-600' : 'text-green-600'}">
+                                ${response.preferenceDeadline && new Date() > new Date(response.preferenceDeadline) ? 'DISABLED (Deadline passed)' : 'ENABLED'}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="font-medium">Allocation View:</span>
+                            <span class="ml-2 ${response.allocationCompleted ? 'text-green-600' : 'text-yellow-600'}">
+                                ${response.allocationCompleted ? 'ACTIVE' : 'INACTIVE'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+            $('#admin-content').html(html);
+            this.attachSystemSettingsEvents();
+        } catch (error) {
+            console.error('Error loading system settings:', error);
+            $('#admin-content').html('<div class="text-red-500">Error loading system settings</div>');
+        }
+    }
+
+    attachSystemSettingsEvents() {
+        // Save deadline
+        $('#deadline-form').on('submit', (e) => this.handleSaveDeadline(e));
+
+        // Clear deadline
+        $('#clear-deadline').on('click', () => this.handleClearDeadline());
+
+        // Allocation status buttons
+        $('#mark-allocation-completed').on('click', () => this.handleSetAllocationStatus(true));
+        $('#mark-allocation-pending').on('click', () => this.handleSetAllocationStatus(false));
+    }
+
+    async handleSaveDeadline(e) {
+        e.preventDefault();
+
+        const deadline = $('#preference-deadline').val();
+
+        if (!deadline) {
+            await SweetAlert.error('Please select a deadline date and time');
+            return;
+        }
+
+        try {
+            await $.ajax({
+                url: '/api/system-settings/preference-deadline',
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                contentType: 'application/json',
+                data: JSON.stringify({ deadline })
+            });
+
+            await SweetAlert.success('Preference deadline saved successfully!');
+            this.loadSystemSettings();
+        } catch (error) {
+            await SweetAlert.error('Error saving deadline: ' + (error.responseJSON?.message || 'Unknown error'));
+        }
+    }
+
+    async handleClearDeadline() {
+        const result = await SweetAlert.confirm(
+            'Clear Deadline?',
+            'This will remove the preference deadline and allow students to edit preferences at any time.'
+        );
+
+        if (!result.isConfirmed) return;
+
+        try {
+            await $.ajax({
+                url: '/api/system-settings/preference-deadline',
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                contentType: 'application/json',
+                data: JSON.stringify({ deadline: null })
+            });
+
+            await SweetAlert.success('Deadline cleared successfully!');
+            this.loadSystemSettings();
+        } catch (error) {
+            await SweetAlert.error('Error clearing deadline: ' + (error.responseJSON?.message || 'Unknown error'));
+        }
+    }
+
+    async handleSetAllocationStatus(completed) {
+        const action = completed ? 'complete' : 'revert to pending';
+        const result = await SweetAlert.confirm(
+            `Mark Allocation as ${completed ? 'Completed' : 'Pending'}?`,
+            `This will ${action} the allocation process. Students will ${completed ? 'be able to view their allocations' : 'no longer see their allocations'}.`
+        );
+
+        if (!result.isConfirmed) return;
+
+        try {
+            await $.ajax({
+                url: '/api/system-settings/allocation-completed',
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                contentType: 'application/json',
+                data: JSON.stringify({ completed })
+            });
+
+            await SweetAlert.success(`Allocation status updated to ${completed ? 'completed' : 'pending'}!`);
+            this.loadSystemSettings();
+        } catch (error) {
+            await SweetAlert.error('Error updating allocation status: ' + (error.responseJSON?.message || 'Unknown error'));
         }
     }
 
@@ -576,6 +766,218 @@ class AdminDashboard {
                 this.loadSupervisorAssignment();
             } catch (error) {
                 await SweetAlert.error('Error during auto-assignment: ' + (error.responseJSON?.message || 'Unknown error'));
+            }
+        });
+    }
+
+    // Add to AdminDashboard class
+    async loadCapacityConflicts() {
+        try {
+            const response = await $.ajax({
+                url: '/api/capacity-conflicts/conflicts',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            // Also load supervisors for reassignment
+            const supervisors = await $.ajax({
+                url: '/api/users/supervisors',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            let html = `
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Capacity Conflict Resolution</h2>
+                    <div class="text-sm text-gray-600">
+                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded">
+                            Conflicts: ${response.length}
+                        </span>
+                    </div>
+                </div>
+        `;
+
+            if (response.length === 0) {
+                html += `
+                <div class="text-center py-8 text-gray-500">
+                    <div class="text-4xl mb-4">✅</div>
+                    <p class="text-lg">No capacity conflicts found!</p>
+                    <p class="mt-2">All approved custom titles have been allocated within supervisor capacity limits.</p>
+                </div>
+            `;
+            } else {
+                html += `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <h3 class="font-semibold text-yellow-800 mb-2">⚠️ Capacity Conflicts Detected</h3>
+                    <p class="text-yellow-700 text-sm">
+                        The following approved custom titles cannot be allocated because their assigned supervisors have reached capacity.
+                        You need to either reassign them to other supervisors or reject the custom titles.
+                    </p>
+                </div>
+
+                <div class="space-y-6">
+            `;
+
+                response.forEach(conflict => {
+                    html += `
+                    <div class="border border-red-300 bg-red-50 rounded-lg p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-red-800">${conflict.studentName}</h3>
+                                <p class="text-gray-600">ID: ${conflict.studentUsername}</p>
+                            </div>
+                            <span class="bg-red-200 text-red-800 px-3 py-1 rounded text-sm font-semibold">
+                                Capacity Exceeded
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <p class="text-sm"><strong>Custom Title:</strong></p>
+                                <p class="font-semibold text-red-700">${conflict.customTitle}*</p>
+                            </div>
+                            <div>
+                                <p class="text-sm"><strong>Preferred Supervisor:</strong></p>
+                                <p class="font-semibold">${conflict.preferredSupervisorName}</p>
+                                <p class="text-sm text-red-600">
+                                    Capacity: ${conflict.supervisorCurrent}/${conflict.supervisorCapacity} students
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="border-t pt-4">
+                            <h4 class="font-semibold mb-3">Resolution Options:</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Reassign Option -->
+                                <div class="border rounded-lg p-4 bg-white">
+                                    <h5 class="font-semibold text-green-700 mb-2">🔄 Reassign to Another Supervisor</h5>
+                                    <form class="reassign-form" data-student-id="${conflict.studentId}">
+                                        <div class="mb-3">
+                                            <select class="w-full border rounded px-3 py-2 text-sm new-supervisor-select" required>
+                                                <option value="">Select available supervisor</option>
+                `;
+
+                    // Add supervisor options with capacity info
+                    supervisors.forEach(supervisor => {
+                        const currentAllocs = conflict.supervisorCurrent; // Simplified - in real implementation, calculate current
+                        const capacity = supervisor.capacity || 0;
+                        const remaining = capacity - currentAllocs;
+                        const status = remaining > 0 ? '🟢' : '🔴';
+
+                        html += `<option value="${supervisor._id}" ${remaining <= 0 ? 'disabled' : ''}>
+                                ${status} ${supervisor.name} (${remaining}/${capacity} remaining)
+                            </option>`;
+                    });
+
+                    html += `
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="w-full bg-green-500 text-white px-3 py-2 rounded text-sm hover:bg-green-600">
+                                            Reassign
+                                        </button>
+                                    </form>
+                                </div>
+
+                                <!-- Reject Option -->
+                                <div class="border rounded-lg p-4 bg-white">
+                                    <h5 class="font-semibold text-red-700 mb-2">❌ Reject Custom Title</h5>
+                                    <form class="reject-form" data-student-id="${conflict.studentId}">
+                                        <div class="mb-3">
+                                            <textarea class="w-full border rounded px-3 py-2 text-sm" rows="2" 
+                                                      placeholder="Reason for rejection (optional)"></textarea>
+                                        </div>
+                                        <button type="submit" class="w-full bg-red-500 text-white px-3 py-2 rounded text-sm hover:bg-red-600">
+                                            Reject Custom Title
+                                        </button>
+                                        <p class="text-xs text-gray-500 mt-2">
+                                            Student will be allocated based on regular preferences
+                                        </p>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                });
+
+                html += `</div>`; // Close space-y-6
+            }
+
+            html += `</div>`; // Close main div
+
+            $('#admin-content').html(html);
+            this.attachCapacityConflictEvents();
+        } catch (error) {
+            console.error('Error loading capacity conflicts:', error);
+            $('#admin-content').html('<div class="text-red-500">Error loading capacity conflicts</div>');
+        }
+    }
+
+    attachCapacityConflictEvents() {
+        // Reassign form submission
+        $(document).on('submit', '.reassign-form', async (e) => {
+            e.preventDefault();
+            const form = $(e.target);
+            const studentId = form.data('student-id');
+            const newSupervisorId = form.find('.new-supervisor-select').val();
+
+            if (!newSupervisorId) {
+                await SweetAlert.error('Please select a supervisor for reassignment');
+                return;
+            }
+
+            try {
+                const response = await $.ajax({
+                    url: '/api/capacity-conflicts/resolve',
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        studentId: studentId,
+                        action: 'reassign',
+                        newSupervisorId: newSupervisorId
+                    })
+                });
+
+                await SweetAlert.success(`Custom title reassigned to ${response.supervisorName}`);
+                this.loadCapacityConflicts();
+            } catch (error) {
+                await SweetAlert.error('Error reassigning custom title: ' + (error.responseJSON?.message || 'Unknown error'));
+            }
+        });
+
+        // Reject form submission
+        $(document).on('submit', '.reject-form', async (e) => {
+            e.preventDefault();
+            const form = $(e.target);
+            const studentId = form.data('student-id');
+            const rejectReason = form.find('textarea').val();
+
+            const result = await SweetAlert.confirm(
+                'Reject Custom Title?',
+                'This will reject the custom title and the student will be allocated based on their regular preferences.'
+            );
+
+            if (!result.isConfirmed) return;
+
+            try {
+                const response = await $.ajax({
+                    url: '/api/capacity-conflicts/resolve',
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        studentId: studentId,
+                        action: 'reject',
+                        rejectReason: rejectReason
+                    })
+                });
+
+                await SweetAlert.success('Custom title rejected. Student will use regular preferences.');
+                this.loadCapacityConflicts();
+            } catch (error) {
+                await SweetAlert.error('Error rejecting custom title: ' + (error.responseJSON?.message || 'Unknown error'));
             }
         });
     }

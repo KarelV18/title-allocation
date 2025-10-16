@@ -117,6 +117,14 @@ class Auth {
                 <h3 class="text-lg font-semibold mb-2">Supervisor Assignment</h3>
                 <p class="text-gray-600 text-sm">Assign supervisors to pending allocations</p>
             </div>
+            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="capacity-conflicts-card">
+                <h3 class="text-lg font-semibold mb-2">Capacity Conflicts</h3>
+                <p class="text-gray-600 text-sm">Resolve supervisor capacity issues</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="system-settings-card">
+                <h3 class="text-lg font-semibold mb-2">System Settings</h3>
+                <p class="text-gray-600 text-sm">Set deadlines and allocation status</p>
+            </div>
             <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="generate-report-card">
                 <h3 class="text-lg font-semibold mb-2">Reports</h3>
                 <p class="text-gray-600 text-sm">Generate allocation reports</p>
@@ -165,6 +173,18 @@ class Auth {
         $('#supervisor-assignment-card').on('click', () => {
             if (window.adminDashboard) {
                 window.adminDashboard.loadSupervisorAssignment();
+            }
+        });
+
+        $('#system-settings-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadSystemSettings();
+            }
+        });
+
+        $('#capacity-conflicts-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadCapacityConflicts();
             }
         });
 

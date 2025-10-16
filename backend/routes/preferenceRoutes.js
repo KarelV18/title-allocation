@@ -3,6 +3,8 @@ const { auth, authorize } = require('../middleware/auth');
 const Preference = require('../models/Preference');
 const User = require('../models/User');
 const Title = require('../models/Title'); // Add this missing import
+const SystemSettings = require('../models/SystemSettings');
+
 
 const router = express.Router();
 
@@ -21,6 +23,14 @@ router.post('/', auth, authorize('student'), async (req, res) => {
     try {
         const { preferences, customTitle } = req.body;
 
+        // Check if deadline has passed
+        const canEdit = await SystemSettings.isBeforeDeadline();
+        if (!canEdit) {
+            return res.status(400).json({
+                message: 'The deadline for submitting preferences has passed. You can no longer edit your preferences.'
+            });
+        }
+
         // Validate exactly 5 preferences
         if (!preferences || preferences.length !== 5) {
             return res.status(400).json({ message: 'Exactly 5 preferences are required' });
@@ -28,7 +38,7 @@ router.post('/', auth, authorize('student'), async (req, res) => {
 
         // Check if student already has preferences
         const existingPreference = await Preference.findByStudent(req.user._id);
-        
+
         const preferenceData = {
             studentId: req.user._id,
             preferences: preferences,
@@ -62,7 +72,7 @@ router.get('/custom-titles', auth, authorize('admin'), async (req, res) => {
     try {
         const preferences = await Preference.getAll();
         const students = await User.getAllByRole('student');
-        
+
         const customTitles = preferences
             .filter(pref => pref.customTitle && pref.customTitle.title)
             .map(pref => {
@@ -90,10 +100,10 @@ router.get('/student-choices', auth, authorize('admin'), async (req, res) => {
         const preferences = await Preference.getAll();
         const students = await User.getAllByRole('student');
         const titles = await Title.getAll(); // This was causing the error
-        
+
         const studentChoices = await Promise.all(preferences.map(async pref => {
             const student = students.find(s => s._id.toString() === pref.studentId.toString());
-            
+
             // Get detailed information for each preference
             const detailedPreferences = await Promise.all(
                 pref.preferences.map(async p => {

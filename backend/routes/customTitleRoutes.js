@@ -12,14 +12,14 @@ router.get('/', auth, authorize('admin'), async (req, res) => {
         const preferences = await Preference.getAll();
         const students = await User.getAllByRole('student');
         const supervisors = await User.getAllByRole('supervisor');
-        
+
         const customTitles = preferences
             .filter(pref => pref.customTitle && pref.customTitle.title)
             .map(pref => {
                 const student = students.find(s => s._id.toString() === pref.studentId.toString());
-                const approvedSupervisor = pref.customTitle.approvedSupervisorId ? 
+                const approvedSupervisor = pref.customTitle.approvedSupervisorId ?
                     supervisors.find(s => s._id.toString() === pref.customTitle.approvedSupervisorId.toString()) : null;
-                
+
                 return {
                     studentId: pref.studentId,
                     studentName: student ? student.name : 'Unknown',
@@ -43,7 +43,7 @@ router.get('/', auth, authorize('admin'), async (req, res) => {
     }
 });
 
-// Approve custom title (Admin only)
+// Approve custom title (Admin only) - WITH CAPACITY CHECK
 router.post('/:studentId/approve', auth, authorize('admin'), async (req, res) => {
     try {
         const { studentId } = req.params;
@@ -59,11 +59,38 @@ router.post('/:studentId/approve', auth, authorize('admin'), async (req, res) =>
             return res.status(400).json({ message: 'Invalid supervisor' });
         }
 
+        // Check supervisor current allocation count
+        const currentAllocations = await Allocation.findBySupervisor(supervisorId);
+        const currentCount = currentAllocations ? currentAllocations.length : 0;
+        const supervisorCapacity = supervisor.capacity || 0;
+
+        // If supervisor is at capacity, return error with current allocation info
+        if (currentCount >= supervisorCapacity) {
+            const allocationDetails = currentAllocations ? currentAllocations.map(a => ({
+                studentName: a.studentName,
+                studentId: a.studentUsername,
+                title: a.title,
+                isCustomTitle: a.isCustomTitle
+            })) : [];
+
+            return res.status(400).json({
+                message: `Supervisor ${supervisor.name} has reached capacity (${currentCount}/${supervisorCapacity})`,
+                supervisorName: supervisor.name,
+                currentCount,
+                capacity: supervisorCapacity,
+                currentAllocations: allocationDetails,
+                needsDecision: true
+            });
+        }
+
+        // If supervisor has capacity, approve normally
         await Preference.updateCustomTitleStatus(studentId, 'approved', supervisorId);
-        
-        res.json({ 
+
+        res.json({
             message: 'Custom title approved successfully',
-            supervisorName: supervisor.name
+            supervisorName: supervisor.name,
+            currentCount: currentCount + 1,
+            capacity: supervisorCapacity
         });
     } catch (error) {
         console.error('Error approving custom title:', error);
@@ -78,7 +105,7 @@ router.post('/:studentId/reject', auth, authorize('admin'), async (req, res) => 
         const { reason } = req.body;
 
         await Preference.updateCustomTitleStatus(studentId, 'rejected', null, reason || 'No reason provided');
-        
+
         res.json({ message: 'Custom title rejected successfully' });
     } catch (error) {
         console.error('Error rejecting custom title:', error);
