@@ -27,19 +27,49 @@ A web application for allocating project titles to students using the Gale-Shapl
    npm install
 
 
-   title-allocation-system/
-├── backend/
-│   ├── config/
-│   ├── controllers/
-│   ├── middleware/
-│   ├── models/
-│   ├── routes/
-│   ├── utils/
-│   └── server.js
-├── frontend/
-│   ├── css/
-│   ├── js/
-│   ├── pages/
-│   └── index.html
+   title-allocation
+├── .gitignore
+├── backend
+    ├── config
+    │   └── database.js
+    ├── controllers
+    │   ├── allocationController.js
+    │   └── authController.js
+    ├── middleware
+    │   └── auth.js
+    ├── models
+    │   ├── Allocation.js
+    │   ├── Preference.js
+    │   ├── SystemSettings.js
+    │   ├── Title.js
+    │   └── User.js
+    ├── routes
+    │   ├── allocationRoutes.js
+    │   ├── authRoutes.js
+    │   ├── capacityConflictRoutes.js
+    │   ├── customTitleRoutes.js
+    │   ├── notificationRoutes.js
+    │   ├── preferenceRoutes.js
+    │   ├── reportRoutes.js
+    │   ├── supervisorAssignmentRoutes.js
+    │   ├── systemSettingsRoutes.js
+    │   ├── titleRoutes.js
+    │   └── userRoutes.js
+    └── server.js
+├── create_admin.js
+├── frontend
+    ├── css
+    │   └── styles.css
+    ├── index.html
+    └── js
+    │   ├── admin.js
+    │   ├── app.js
+    │   ├── auth.js
+    │   ├── student.js
+    │   ├── supervisor.js
+    │   └── utils.js
+├── package-lock.json
 ├── package.json
-└── README.md
+├── readme.md
+├── test_mongo.js
+└── users_template.csv
