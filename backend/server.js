@@ -14,6 +14,7 @@ const supervisorAssignmentRoutes = require('./routes/supervisorAssignmentRoutes'
 const notificationRoutes = require('./routes/notificationRoutes');
 const systemSettingsRoutes = require('./routes/systemSettingsRoutes');
 const capacityConflictRoutes = require('./routes/capacityConflictRoutes');
+const secondMarkerRoutes = require('./routes/secondMarkerRoutes');
 
 
 const { connectDB } = require('./config/database');
@@ -38,6 +39,7 @@ app.use('/api/supervisor-assignment', supervisorAssignmentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/system-settings', systemSettingsRoutes);
 app.use('/api/capacity-conflicts', capacityConflictRoutes);
+app.use('/api/second-markers', secondMarkerRoutes);
 
 
 // Serve frontend

@@ -13,9 +13,9 @@ class User {
       username: userData.username,
       password: hashedPassword,
       role: userData.role,
-      name: userData.name || userData.fullName, // Handle both name and fullName
-      email: userData.email,
-      capacity: userData.role === 'supervisor' ? parseInt(userData.capacity) || 0 : 0, // Supervisor Capacity
+      name: userData.name || userData.fullName,
+      email: userData.email || '', // Ensure email is included
+      capacity: userData.role === 'supervisor' ? parseInt(userData.capacity) || 0 : 0,
       createdAt: new Date(),
       updatedAt: new Date()
     };

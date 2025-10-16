@@ -45,7 +45,6 @@ class StudentDashboard {
     // }
     async loadDashboard() {
         try {
-            // Check system settings and allocation status
             const [settings, allocation, canEditResponse] = await Promise.all([
                 $.ajax({
                     url: '/api/system-settings',
@@ -66,105 +65,104 @@ class StudentDashboard {
                 }).catch(() => ({ canEdit: true, allocationCompleted: false }))
             ]);
 
-            // FIXED LOGIC: Students can edit preferences if deadline hasn't passed
-            // Allocation existence doesn't affect preference selection
             const canEditPreferences = canEditResponse.canEdit;
-            const canViewAllocation = allocation && settings.allocationCompleted;
+            const allocationCompleted = settings.allocationCompleted;
+            const hasAllocation = allocation !== null;
 
             let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">`;
 
-            // Select Preferences Card - only show if deadline hasn't passed
+            // Select Preferences Card - show if deadline hasn't passed
             if (canEditPreferences) {
                 html += `
-                <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="select-preferences-card">
-                    <h3 class="text-lg font-semibold mb-2">Select Preferences</h3>
-                    <p class="text-gray-600 text-sm">Choose your top 5 title preferences</p>
-                    ${settings.preferenceDeadline ? `
-                        <p class="text-xs text-orange-600 mt-2">
-                            ⏰ Deadline: ${new Date(settings.preferenceDeadline).toLocaleString()}
-                        </p>
-                    ` : ''}
-                    ${allocation ? `
-                        <p class="text-xs text-blue-600 mt-1">
-                            ℹ️ You can update your preferences until the deadline
-                        </p>
-                    ` : ''}
+            <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="select-preferences-card">
+                <div class="flex items-center mb-3">
+                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold">Select Preferences</h3>
                 </div>
+                <p class="text-gray-600 text-sm mb-2">Choose your top 5 title preferences</p>
+                ${hasAllocation ? `
+                    <p class="text-xs text-blue-600">✓ You can update your existing preferences</p>
+                ` : ''}
+                ${settings.preferenceDeadline ? `
+                    <p class="text-xs text-orange-600 mt-1">
+                        ⏰ Deadline: ${new Date(settings.preferenceDeadline).toLocaleString()}
+                    </p>
+                ` : ''}
+            </div>
             `;
             }
 
-            // My Allocation Card - only show if allocation exists and is marked as completed
-            if (canViewAllocation) {
+            // My Allocation Card - show if allocation exists or allocation is completed
+            if (hasAllocation || allocationCompleted) {
+                const cardClass = hasAllocation ?
+                    (allocation.isCustomTitle ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200') :
+                    'bg-gray-50 border border-gray-200';
+
+                const iconColor = hasAllocation ? 'text-green-600' : 'text-gray-600';
+                const statusText = hasAllocation ?
+                    (allocation.isCustomTitle ? 'Custom Title Allocated' : 'Title Allocated') :
+                    'View Allocation Status';
+
                 html += `
-                <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow ${allocation.isCustomTitle ? 'bg-green-50 border border-green-200' : ''}" id="view-allocation-card">
-                    <h3 class="text-lg font-semibold mb-2">My Allocation</h3>
-                    <p class="text-gray-600 text-sm">View your allocated title and supervisor</p>
-                    ${allocation.isCustomTitle ? `
-                        <p class="text-xs text-green-600 mt-1">✓ Custom Title Approved</p>
-                    ` : ''}
+            <div class="${cardClass} p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="view-allocation-card">
+                <div class="flex items-center mb-3">
+                    <div class="w-10 h-10 ${hasAllocation ? 'bg-green-100' : 'bg-gray-100'} rounded-full flex items-center justify-center mr-3">
+                        <svg class="w-5 h-5 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold">My Allocation</h3>
                 </div>
+                <p class="text-gray-600 text-sm mb-2">${hasAllocation ? 'View your allocated title and supervisor' : 'Check your allocation status'}</p>
+                <p class="text-xs ${hasAllocation ? 'text-green-600' : 'text-gray-600'} font-semibold">${statusText}</p>
+            </div>
             `;
             }
 
             // If no cards are available, show appropriate message
-            if (!canEditPreferences && !canViewAllocation) {
-                let message = '';
-                let icon = '⏰';
-
-                if (settings.preferenceDeadline && new Date() > new Date(settings.preferenceDeadline)) {
-                    message = 'The preference selection period has ended.';
-                    icon = '🔒';
-                } else if (settings.allocationCompleted && !allocation) {
-                    message = 'Allocation is completed but no allocation found for you. Please contact administrator.';
-                    icon = '❓';
-                } else {
-                    message = 'Allocation is in progress. Please check back later to view your allocation.';
-                    icon = '⏳';
-                }
-
+            if (!canEditPreferences && !(hasAllocation || allocationCompleted)) {
                 html = `
-                <div class="bg-white rounded-lg shadow p-6 text-center">
-                    <div class="py-8">
-                        <div class="text-4xl mb-4">${icon}</div>
-                        <h3 class="text-xl font-semibold text-gray-700 mb-2">No Actions Available</h3>
-                        <p class="text-gray-600">${message}</p>
-                        ${settings.preferenceDeadline && new Date() > new Date(settings.preferenceDeadline) ? `
-                            <p class="text-sm text-gray-500 mt-2">
-                                Deadline was: ${new Date(settings.preferenceDeadline).toLocaleString()}
-                            </p>
-                        ` : ''}
-                    </div>
+            <div class="bg-white rounded-lg shadow p-6 text-center col-span-2">
+                <div class="py-8">
+                    <div class="text-4xl mb-4">⏳</div>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-2">Allocation in Progress</h3>
+                    <p class="text-gray-600">The project allocation process is currently underway. Please check back later.</p>
                 </div>
+            </div>
             `;
             }
 
             html += `</div><div id="student-content" class="mt-6"></div>`;
             $('#content').html(html);
 
-
             // Attach event listeners conditionally
             if (canEditPreferences) {
                 $('#select-preferences-card').on('click', () => this.loadTitleSelection());
             }
-            if (canViewAllocation) {
+            if (hasAllocation || allocationCompleted) {
                 $('#view-allocation-card').on('click', () => this.loadMyAllocation());
             }
 
             // Auto-load appropriate content
-            if (canViewAllocation) {
+            if (hasAllocation) {
                 this.loadMyAllocation();
             } else if (canEditPreferences) {
-                // Load title selection by default if allowed
                 this.loadTitleSelection();
+            } else if (allocationCompleted) {
+                this.loadMyAllocation();
             }
         } catch (error) {
             console.error('Error loading student dashboard:', error);
             $('#content').html(`
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="text-center py-8 text-red-500">
-                    <p>Error loading dashboard. Please refresh the page.</p>
-                </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="text-center py-8 text-red-500">
+                <p>Error loading dashboard. Please refresh the page.</p>
             </div>
+        </div>
         `);
         }
     }
@@ -830,132 +828,200 @@ class StudentDashboard {
     // Update the loadMyAllocation method to show custom title status
     async loadMyAllocation() {
         try {
-            const allocation = await $.ajax({
-                url: '/api/allocations',
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            });
+            const [allocation, settings, preferences] = await Promise.all([
+                $.ajax({
+                    url: '/api/allocations',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }).catch(() => null), // Return null if no allocation
 
-            const settings = await $.ajax({
-                url: '/api/system-settings',
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            }).catch(() => ({ allocationCompleted: false }));
+                $.ajax({
+                    url: '/api/system-settings',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }).catch(() => ({ allocationCompleted: false })),
 
-            let html = `
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-2xl font-bold mb-6">My Allocation</h2>
-        `;
-
-            // Check if allocation exists and is completed
-            if (!allocation || !settings.allocationCompleted) {
-                html += `
-                <div class="text-center py-8">
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 inline-block">
-                        <svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <p class="text-yellow-800 font-semibold">Allocation In Progress</p>
-                        <p class="mt-2 text-yellow-700">Your project allocation is being processed. Please check back later.</p>
-                    </div>
-                </div>
-            `;
-            } else {
-
-                // Get current preferences to check custom title status
-                const preferences = await $.ajax({
+                $.ajax({
                     url: '/api/preferences',
                     method: 'GET',
                     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-                });
+                }).catch(() => null)
+            ]);
 
-                let html = `
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-2xl font-bold mb-6">My Allocation</h2>
+            let html = `
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-2xl font-bold mb-6">My Project Allocation</h2>
         `;
 
-                // Show custom title status if student has one
-                if (preferences && preferences.customTitle) {
-                    const customTitle = preferences.customTitle;
-                    html += `
-                <div class="mb-6 p-4 border rounded-lg ${customTitle.status === 'approved' ? 'bg-green-50 border-green-200' :
-                            customTitle.status === 'rejected' ? 'bg-red-50 border-red-200' :
+            // Check if allocation process has been completed
+            if (!settings.allocationCompleted) {
+                html += `
+            <div class="text-center py-8">
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 inline-block">
+                    <svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-yellow-800 font-semibold">Allocation In Progress</p>
+                    <p class="mt-2 text-yellow-700">The project allocation process is currently running. Please check back later.</p>
+                </div>
+            </div>
+        `;
+            } else if (!allocation) {
+                // Allocation completed but no allocation found for this student
+                html += `
+            <div class="text-center py-8">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-6 inline-block">
+                    <svg class="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                    <p class="text-red-800 font-semibold">No Allocation Found</p>
+                    <p class="mt-2 text-red-700">You were not allocated to any project title.</p>
+                    <p class="mt-2 text-sm text-red-600">Please contact the administrator for assistance.</p>
+                </div>
+            </div>
+        `;
+            } else {
+                // SUCCESS: Student has an allocation
+                const hasCustomTitle = preferences && preferences.customTitle;
+                const customTitleStatus = hasCustomTitle ? preferences.customTitle.status : null;
+
+                html += `
+            <div class="max-w-4xl mx-auto">
+                ${hasCustomTitle ? `
+                <div class="mb-6 p-4 border rounded-lg ${customTitleStatus === 'approved' ? 'bg-green-50 border-green-200' :
+                            customTitleStatus === 'rejected' ? 'bg-red-50 border-red-200' :
                                 'bg-yellow-50 border-yellow-200'
                         }">
-                    <h3 class="font-semibold mb-2">Custom Title Status</h3>
-                    <p><strong>Title:</strong> ${customTitle.title}*</p>
-                    <p><strong>Status:</strong> 
-                        <span class="font-semibold ${customTitle.status === 'approved' ? 'text-green-700' :
-                            customTitle.status === 'rejected' ? 'text-red-700' :
+                    <h3 class="font-semibold mb-2 flex items-center">
+                        <svg class="w-5 h-5 mr-2 ${customTitleStatus === 'approved' ? 'text-green-600' : customTitleStatus === 'rejected' ? 'text-red-600' : 'text-yellow-600'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Custom Title Status
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <strong>Title:</strong> ${preferences.customTitle.title}
+                        </div>
+                        <div>
+                            <strong>Status:</strong> 
+                            <span class="font-semibold ${customTitleStatus === 'approved' ? 'text-green-700' :
+                            customTitleStatus === 'rejected' ? 'text-red-700' :
                                 'text-yellow-700'
                         }">
-                            ${customTitle.status ? customTitle.status.charAt(0).toUpperCase() + customTitle.status.slice(1) : 'Pending'}
-                        </span>
-                    </p>
-                    ${customTitle.status === 'approved' ? `
-                        <p class="text-green-700"><strong>Approved!</strong> You will be allocated to this title.</p>
-                    ` : ''}
-                    ${customTitle.status === 'rejected' ? `
-                        <p class="text-red-700"><strong>Rejected:</strong> ${customTitle.rejectedReason || 'No reason provided'}</p>
-                        <p class="text-red-600 text-sm">You will be allocated based on your regular preferences.</p>
-                    ` : ''}
-                    ${!customTitle.status || customTitle.status === 'pending' ? `
-                        <p class="text-yellow-700">Your custom title is pending admin approval.</p>
-                    ` : ''}
-                </div>
-            `;
-                }
-
-                if (!allocation) {
-                    html += `
-                <div class="text-center py-8">
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 inline-block">
-                        <p class="text-yellow-800">No allocation has been made yet.</p>
-                        <p class="mt-2 text-yellow-700">Please submit your preferences and wait for the allocation process to run.</p>
+                                ${customTitleStatus ? customTitleStatus.charAt(0).toUpperCase() + customTitleStatus.slice(1) : 'Pending'}
+                            </span>
+                        </div>
+                        ${customTitleStatus === 'approved' ? `
+                            <div class="md:col-span-2 text-green-700">
+                                <strong>✓ Approved!</strong> You were allocated to your custom title.
+                            </div>
+                        ` : ''}
+                        ${customTitleStatus === 'rejected' ? `
+                            <div class="md:col-span-2">
+                                <p class="text-red-700"><strong>Rejected:</strong> ${preferences.customTitle.rejectedReason || 'No reason provided'}</p>
+                                <p class="text-red-600 text-sm mt-1">You were allocated based on your regular preferences.</p>
+                            </div>
+                        ` : ''}
+                        ${customTitleStatus === 'pending' ? `
+                            <div class="md:col-span-2 text-yellow-700">
+                                Your custom title is still pending admin approval. You were allocated based on your regular preferences.
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
-            `;
-                } else {
-                    html += `
-                <div class="bg-green-50 border border-green-200 rounded-lg p-6 max-w-2xl mx-auto">
+                ` : ''}
+
+                <div class="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-6">
                     <div class="text-center mb-6">
                         <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
                         </div>
-                        <h3 class="text-xl font-semibold text-green-800">Title Allocated!</h3>
+                        <h3 class="text-xl font-semibold text-green-800">Project Allocated!</h3>
+                        <p class="text-green-600 mt-1">Congratulations on your project assignment</p>
                     </div>
                     
-                    <div class="space-y-4">
-                        <div class="flex justify-between border-b pb-2">
-                            <span class="font-semibold">Title:</span>
-                            <span class="text-lg">${allocation.title}${allocation.isCustomTitle ? ' *' : ''}</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div class="bg-white rounded-lg p-4 border">
+                                <div class="flex items-center mb-2">
+                                    <svg class="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <span class="font-semibold">Project Title</span>
+                                </div>
+                                <p class="text-lg text-gray-800 pl-7">${allocation.title}${allocation.isCustomTitle ? ' *' : ''}</p>
+                            </div>
+
+                            <div class="bg-white rounded-lg p-4 border">
+                                <div class="flex items-center mb-2">
+                                    <svg class="w-5 h-5 text-purple-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    </svg>
+                                    <span class="font-semibold">Supervisor</span>
+                                </div>
+                                <p class="text-lg text-gray-800 pl-7">${allocation.supervisorName || 'Not Assigned'}</p>
+                                ${allocation.needsSupervisor ? `
+                                    <p class="text-sm text-yellow-600 mt-1 pl-7">⚠️ Supervisor assignment pending</p>
+                                ` : ''}
+                            </div>
                         </div>
-                        <div class="flex justify-between border-b pb-2">
-                            <span class="font-semibold">Supervisor:</span>
-                            <span>${allocation.supervisorName}</span>
-                        </div>
-                        <div class="flex justify-between border-b pb-2">
-                            <span class="font-semibold">Student ID:</span>
-                            <span>${allocation.studentUsername}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="font-semibold">Student Name:</span>
-                            <span>${allocation.studentName}</span>
+
+                        <div class="space-y-4">
+                            <div class="bg-white rounded-lg p-4 border">
+                                <div class="flex items-center mb-2">
+                                    <svg class="w-5 h-5 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path>
+                                    </svg>
+                                    <span class="font-semibold">Student Information</span>
+                                </div>
+                                <div class="space-y-2 pl-7">
+                                    <p><strong>ID:</strong> ${allocation.studentUsername}</p>
+                                    <p><strong>Name:</strong> ${allocation.studentName}</p>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-lg p-4 border">
+                                <div class="flex items-center mb-2">
+                                    <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <span class="font-semibold">Allocation Details</span>
+                                </div>
+                                <div class="space-y-2 pl-7">
+                                    <p><strong>Type:</strong> ${allocation.isCustomTitle ? 'Custom Title' : 'Title from Project List'}</p>
+                                    <p><strong>Allocated:</strong> ${allocation.allocatedAt ? new Date(allocation.allocatedAt).toLocaleDateString() : 'N/A'}</p>
+                                    ${allocation.preferenceRank ? `<p><strong>Preference Rank:</strong> ${allocation.preferenceRank}</p>` : ''}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    
+
                     ${allocation.isCustomTitle ? `
                         <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                            <p class="text-sm text-blue-800">
-                                <strong>Note:</strong> This is a custom title you suggested.
+                            <p class="text-sm text-blue-800 flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <strong>Note: </strong>This is a title you proposed and was approved by the administrator.
+                            </p>
+                        </div>
+                    ` : ''}
+
+                    ${allocation.needsSupervisor ? `
+                        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                            <p class="text-sm text-yellow-800 flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                </svg>
+                                <strong>Attention:</strong> Your project title is awaiting supervisor assignment. The administrator will assign a supervisor shortly.
                             </p>
                         </div>
                     ` : ''}
                 </div>
-            `;
-                }
+            </div>
+        `;
             }
 
             html += `</div>`;
@@ -963,12 +1029,12 @@ class StudentDashboard {
         } catch (error) {
             console.error('Error loading allocation:', error);
             $('#student-content').html(`
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-2xl font-bold mb-6">My Allocation</h2>
-                <div class="text-center py-8 text-gray-500">
-                    <p>No allocation found or error loading allocation.</p>
-                </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-2xl font-bold mb-6">My Allocation</h2>
+            <div class="text-center py-8 text-red-500">
+                <p>Error loading allocation information. Please try again later.</p>
             </div>
+        </div>
         `);
         }
     }

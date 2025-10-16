@@ -2,6 +2,7 @@ const express = require('express');
 const { auth, authorize } = require('../middleware/auth');
 const Allocation = require('../models/Allocation');
 const User = require('../models/User');
+const { SecondMarkerAssignment } = require('../controllers/secondMarkerController');
 const XLSX = require('xlsx');
 
 const router = express.Router();
@@ -12,6 +13,8 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
         console.log('User making request:', req.user.username, 'Role:', req.user.role);
 
         const allocations = await Allocation.getAll();
+        const students = await User.getAllByRole('student');
+
         console.log('Allocations found:', allocations ? allocations.length : 0);
 
         if (!allocations || allocations.length === 0) {
@@ -20,6 +23,19 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
             });
         }    // Get supervisor data for capacity reporting
         const supervisors = await User.getAllByRole('supervisor');
+
+        // Create student email map
+        const studentEmailMap = new Map();
+        students.forEach(student => {
+            studentEmailMap.set(student.username, student.email);
+        });
+
+        if (!allocations || allocations.length === 0) {
+            return res.status(400).json({
+                message: 'No allocations found. Please run the allocation process first.'
+            });
+        }
+
         const supervisorCapacity = new Map();
 
         // Calculate REAL-TIME supervisor allocations
@@ -33,6 +49,7 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
             });
         }
 
+        // Prepare data for Sheet 1: Allocations
         // Prepare data for Excel
         const data = allocations.map(allocation => {
             const supervisorInfo = allocation.supervisorId ?
@@ -52,8 +69,31 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
             };
         });
 
-        // Add summary rows
-        data.unshift({
+        // Generate second marker assignments for Sheet 2
+        const supervisedAllocations = allocations.filter(a => a.supervisorId);
+        const assignmentEngine = new SecondMarkerAssignment(supervisedAllocations, supervisors);
+        const secondMarkerResults = assignmentEngine.assignSecondMarkers();
+
+        // Prepare data for Sheet 2: VIVA Plan
+        const vivaPlanData = secondMarkerResults.assignments.map(assignment => {
+            // Split student name into first and last name
+            const nameParts = assignment.studentName.split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+
+            return {
+                'Student ID': assignment.studentUsername,
+                'Student First Name': firstName,
+                'Student Last Name': lastName,
+                'Student Email': studentEmailMap.get(assignment.studentUsername) || 'N/A',
+                'Allocated Title': assignment.title,
+                'Supervisor': assignment.supervisorName,
+                '2nd Marker': assignment.secondMarkerName
+            };
+        });
+
+        // Add summary rows to allocation data
+        allocationData.unshift({
             'Student ID': 'SUMMARY',
             'Student Name': `Total Allocations: ${allocations.length}`,
             'Supervisor Name': `Custom Titles: ${allocations.filter(a => a.isCustomTitle).length}`,
@@ -65,7 +105,7 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
         });
 
         // Add supervisor capacity summary
-        data.unshift({
+        allocationData.unshift({
             'Student ID': 'SUPERVISOR CAPACITY',
             'Student Name': '=== SUPERVISOR CAPACITY SUMMARY ===',
             'Supervisor Name': '',
@@ -77,7 +117,7 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
         });
 
         Array.from(supervisorCapacity.values()).forEach(cap => {
-            data.unshift({
+            allocationData.unshift({
                 'Student ID': '',
                 'Student Name': cap.supervisorName,
                 'Supervisor Name': `${cap.current}/${cap.capacity}`,
@@ -90,18 +130,49 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
             });
         });
 
-        // Create workbook
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(data);
+        // Add second marker statistics to VIVA Plan
+        vivaPlanData.unshift({
+            'Student ID': 'SECOND MARKER STATISTICS',
+            'Student First Name': '=== SECOND MARKER ASSIGNMENT SUMMARY ===',
+            'Student Last Name': '',
+            'Student Email': '',
+            'Allocated Title': '',
+            'Supervisor': '',
+            '2nd Marker': ''
+        });
 
-        // Set column widths
-        const colWidths = [
+        secondMarkerResults.statistics.supervisorPairStats.forEach(stat => {
+            vivaPlanData.unshift({
+                'Student ID': '',
+                'Student First Name': stat.supervisorName,
+                'Student Last Name': `Supervises: ${stat.supervisionCount}, Marks: ${stat.secondMarkingCount}`,
+                'Student Email': `Unique 2nd Markers: ${stat.uniquePairs}`,
+                'Allocated Title': stat.pairs.join(', '),
+                'Supervisor': '',
+                '2nd Marker': ''
+            });
+        });
+
+        // Create workbook with two sheets
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: Allocations
+        const ws1 = XLSX.utils.json_to_sheet(allocationData);
+        const allocationColWidths = [
             { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 20 },
             { wch: 50 }, { wch: 12 }, { wch: 15 }, { wch: 15 }
         ];
-        ws['!cols'] = colWidths;
+        ws1['!cols'] = allocationColWidths;
+        XLSX.utils.book_append_sheet(wb, ws1, 'Allocations');
 
-        XLSX.utils.book_append_sheet(wb, ws, 'Title Allocations');
+        // Sheet 2: VIVA Plan
+        const ws2 = XLSX.utils.json_to_sheet(vivaPlanData);
+        const vivaColWidths = [
+            { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 25 },
+            { wch: 50 }, { wch: 25 }, { wch: 25 }
+        ];
+        ws2['!cols'] = vivaColWidths;
+        XLSX.utils.book_append_sheet(wb, ws2, 'VIVA Plan');
 
         // Generate buffer
         const buf = XLSX.write(wb, {
@@ -111,13 +182,13 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
 
         // Set headers
         const dateStr = new Date().toISOString().split('T')[0];
-        const filename = `title_allocations_${dateStr}.xlsx`;
+        const filename = `title_allocations_with_viva_plan_${dateStr}.xlsx`;
 
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Length', buf.length);
 
-        console.log(`=== Report Generated Successfully: ${allocations.length} records ===`);
+        console.log(`=== Report Generated Successfully: ${allocations.length} records, ${vivaPlanData.length} VIVA assignments ===`);
         res.send(buf);
 
     } catch (error) {
@@ -127,6 +198,7 @@ router.get('/excel', auth, authorize('admin'), async (req, res) => {
         });
     }
 });
+
 
 // Add a new endpoint to get allocation statistics
 router.get('/statistics', auth, authorize('admin'), async (req, res) => {
