@@ -34,3 +34,7 @@ node_modules/
 
 # openssl gen using portable git bash
 create_JWT_tokens.txt
+
+# remove create_admin
+create_admin.js
+test_mongo.js
