@@ -53,10 +53,10 @@ A comprehensive **web-based system** designed to manage student project title al
 
 | Layer | Technologies |
 |--------|----------------|
-|**Backend**: Node.js, Express, MongoDB|
-|**Frontend**: HTML, TailwindCSS, jQuery, SweetAlert2|
-|**Authentication**: JWT|
-|**Reporting**: XLSX (Excel export)|
+|**Backend** | Node.js, Express, MongoDB|
+|**Frontend** | HTML, TailwindCSS, jQuery, SweetAlert2|
+|**Authentication** | JWT|
+|**Reporting** | XLSX (Excel export)|
 
 ---
 
