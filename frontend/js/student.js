@@ -21,28 +21,6 @@ class StudentDashboard {
         $(document).on('submit', '#custom-title-form', (e) => this.handleCustomTitle(e));
     }
 
-    // loadDashboard() {
-    //     const content = $('#content');
-    //     content.html(`
-    //         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    //             <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="select-preferences-card">
-    //                 <h3 class="text-lg font-semibold mb-2">Select Preferences</h3>
-    //                 <p class="text-gray-600 text-sm">Choose your top 5 title preferences</p>
-    //             </div>
-    //             <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="view-allocation-card">
-    //                 <h3 class="text-lg font-semibold mb-2">My Allocation</h3>
-    //                 <p class="text-gray-600 text-sm">View your allocated title and supervisor</p>
-    //             </div>
-    //         </div>
-    //         <div id="student-content" class="mt-6"></div>
-    //     `);
-
-    //     $('#select-preferences-card').on('click', () => this.loadTitleSelection());
-    //     $('#view-allocation-card').on('click', () => this.loadMyAllocation());
-
-    //     // Load allocation by default
-    //     this.loadMyAllocation();
-    // }
     async loadDashboard() {
         try {
             const [settings, allocation, canEditResponse] = await Promise.all([
@@ -1040,17 +1018,15 @@ class StudentDashboard {
     }
 
     showSuccess(message) {
+        const successHtml = `
+            <div class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+                ${message}
+            </div>
+        `;
+        $('body').append(successHtml);
+        setTimeout(() => {
+            $('.fixed.top-4.right-4').remove();
+        }, 3000);
         SweetAlert.success(message);
     }
-    // showSuccess(message) {
-    //     const successHtml = `
-    //         <div class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-    //             ${message}
-    //         </div>
-    //     `;
-    //     $('body').append(successHtml);
-    //     setTimeout(() => {
-    //         $('.fixed.top-4.right-4').remove();
-    //     }, 3000);
-    // }
 }
