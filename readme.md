@@ -1,79 +1,80 @@
 # 🎓 Title Allocation System
 
-A comprehensive **web-based system** for managing student project title allocations, supervisor assignments, custom title proposals, and second marker assignments.  
-Built with **Node.js**, **MongoDB**, and a **JavaScript frontend** using **TailwindCSS**, **jQuery**, and **SweetAlert2**.
+A comprehensive **web-based system** designed to manage student project title allocations, supervisor assignments, custom title proposals, and second marker assignments in academic institutions. The system supports role-based access (Admin, Supervisor, Student), enforces deadlines, and uses the Gale–Shapley algorithm for stable matching with supervisor capacity constraints.
 
 ---
 
 ## 🚀 Features
 
 ### 🔐 Authentication & Roles
-- JWT-based secure login
-- Role-based access for **Admin**, **Supervisor**, and **Student**
+- JWT-based login system
+- Role-based dashboards for Admin, Supervisor, and Student
 
-### 📋 Student Preferences
-- Submit **exactly 5 ranked title preferences**
-- Propose **custom titles** with supervisor suggestions
-- Enforces submission **deadlines**
+### 🎓 Student Preferences
+- Submit 5 ranked title preferences
+- Propose custom titles with supervisor
+- Deadline enforcement for submissions
 
-### 🧠 Allocation Engine
-- Implements the **Gale–Shapley Algorithm** for stable matching
-- Handles **supervisor capacity constraints**
-- Supports **custom titles**, **unmatched students**, and **allocation statistics**
+### 📊 Allocation Engine
+- Gale–Shapley algorithm with supervisor capacity constraints
+- Handles unmatched students and custom title approvals
+- Allocation statistics and preference distribution
 
 ### 👨‍🏫 Supervisor Assignment
-- **Manual and auto-assignment** for unmatched students
-- Real-time **supervisor capacity tracking**
+- Manual and auto-assignment of supervisors
+- Real-time capacity tracking
+- Conflict resolution for over-capacity supervisors
 
-### 🧪 Second Marker Assignment
-- Balances supervisor workload
-- Prevents **self-marking**
-- Minimizes **unique supervisor pairs**
+### 🧑‍🏫 Second Marker Assignment
+- Balanced workload distribution
+- Avoids self-marking
+- Supervisor pairing statistics
 
-### 📊 Reporting
-- **Excel export** with:
-  - Allocation summary  
-  - Supervisor capacity utilization  
-  - Viva plan with second marker assignments
+### 📢 Notifications
+- Allocation alerts for students
+- Mark notifications as read
+- Bulk notification clearing
 
-### 🔔 Notifications
-- Students receive **allocation notifications**
-- Supports **mark as read** or **bulk clear**
+### 📈 Reporting
+- Excel export with:
+  - Allocation summary
+  - Supervisor capacity
+  - VIVA plan
+  - Second marker statistics
 
-### ⚙️ Admin Dashboard
-- Manage titles, users, preferences, and system settings
-- Resolve **capacity conflicts**
-- View and filter **finalized allocations**
+### 🛠 Admin Dashboard
+- Manage titles, users, preferences, custom titles
+- Resolve capacity conflicts
+- Set system deadlines and allocation status
 
 ---
 
-## 🧱 Tech Stack
+## 🧰 Tech Stack
 
-| Layer | Technologies |
-|--------|----------------|
-| **Backend** | Node.js, Express, MongoDB |
-| **Frontend** | HTML, TailwindCSS, jQuery, SweetAlert2 |
-| **Authentication** | JWT |
-| **Data Export** | XLSX (Excel) |
+- **Backend**: Node.js, Express, MongoDB
+- **Frontend**: HTML, TailwindCSS, jQuery, SweetAlert2
+- **Authentication**: JWT
+- **Reporting**: XLSX (Excel export)
 
 ---
 
 ## 📁 Project Structure
 
 ```
-├── backend
+├── backend/
 │   ├── config/
 │   ├── controllers/
 │   ├── middleware/
 │   ├── models/
 │   ├── routes/
 │   └── server.js
-├── frontend
+├── frontend/
 │   ├── css/
 │   ├── js/
+│   ├── favicon/
 │   └── index.html
-├── create_admin.js
 ├── users_template.csv
+├── .gitignore
 ├── package.json
 └── README.md
 ```
@@ -82,52 +83,56 @@ Built with **Node.js**, **MongoDB**, and a **JavaScript frontend** using **Tailw
 
 ## ⚙️ Setup Instructions
 
-### 1️⃣ Clone the Repository
-```bash
-git clone https://github.com/mrinalsharma14/title-allocation-system.git
-cd title-allocation-system
-```
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/title-allocation.git
+   cd title-allocation
+   ```
 
-### 2️⃣ Install Dependencies
-```bash
-npm install
-```
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-### 3️⃣ Configure Environment
-Create a `.env` file in the root directory:
+3. **Configure environment variables**
+   Create a `.env` file in the root with:
+   ```env
+   PORT=5000
+   MONGODB_URI=mongodb://localhost:27017
+   DB_NAME=title_allocation
+   JWT_SECRET=your_jwt_secret
+   JWT_EXPIRES_IN=24h
+   CLIENT_URL=http://localhost:5000
+   ```
 
-```env
-PORT=5000
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret
-```
+4. **Start the server**
+   ```bash
+   npm run dev
+   ```
 
-### 4️⃣ Start the Server
-```bash
-node backend/server.js
-```
+   ```bash
+   nodemon
+   ```
 
-### 5️⃣ Access the Application
-Open your browser and go to:  
-👉 [http://localhost:5000](http://localhost:5000)
-
----
-
-## 👥 Bulk User Upload
-
-Use the provided `users_template.csv` to upload student and supervisor data.
-
-✅ **Ensure the following:**
-- Supervisor capacity matches total student count  
-- Roles are correctly assigned (`student`, `supervisor`, `admin`)  
+5. **Access the app**
+   Open http://localhost:5000 in your browser.
 
 ---
 
-## 🔄 Allocation Workflow
+## 📦 Bulk User Upload
 
-1. Students submit preferences  
-2. Admin runs the allocation process  
-3. System assigns titles using **Gale–Shapley algorithm**  
-4. Unmatched students are flagged for **manual assignment**  
-5. **Second markers** are automatically distributed  
-6. **Reports** are generated for export  
+Use `users_template.csv` to bulk upload students and supervisors. Ensure:
+- Supervisor capacity matches total student count.
+- Roles: `student`, `supervisor`, `admin`
+- Email format: university domain
+
+---
+
+## 📌 Allocation Workflow
+
+1. Students submit preferences and custom titles.
+2. Admin reviews and approves custom titles.
+3. Admin runs allocation algorithm.
+4. System assigns titles using Gale–Shapley.
+5. Supervisor and second marker assignments are made.
+6. Reports are generated and notifications sent.
