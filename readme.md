@@ -109,10 +109,6 @@ A comprehensive **web-based system** designed to manage student project title al
 
 4. **Start the server**
    ```bash
-   npm run dev
-   ```
-OR
-   ```bash
    nodemon
    ```
 
