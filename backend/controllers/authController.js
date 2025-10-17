@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 
 const login = async (req, res) => {
@@ -9,8 +10,14 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Please provide username and password' });
     }
 
+    // Input validation
+    if (username.length < 3 || password.length < 6) {
+      return res.status(400).json({ message: 'Invalid credentials format' });
+    }
+
     const user = await User.findByUsername(username);
     if (!user) {
+      // Use generic error message to prevent user enumeration
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
@@ -19,10 +26,23 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // Ensure JWT secret is set
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is not configured');
+    }
+
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET || 'fallback_secret',
-      { expiresIn: '24h' }
+      {
+        userId: user._id,
+        role: user.role,
+        username: user.username
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+        issuer: 'title-allocation-system',
+        audience: 'title-allocation-users'
+      }
     );
 
     res.json({
@@ -35,8 +55,14 @@ const login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login error:', error.message);
+
+    // Generic error message in production
+    const message = process.env.NODE_ENV === 'production'
+      ? 'Authentication failed'
+      : error.message;
+
+    res.status(500).json({ message });
   }
 };
 
@@ -44,6 +70,13 @@ const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const userId = req.user._id;
+
+    // Validate new password strength
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        message: 'New password must be at least 8 characters long'
+      });
+    }
 
     const user = await User.findById(userId);
     if (!user) {
@@ -56,10 +89,16 @@ const changePassword = async (req, res) => {
     }
 
     await User.updatePassword(userId, newPassword);
+
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
-    console.error('Change password error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Change password error:', error.message);
+
+    const message = process.env.NODE_ENV === 'production'
+      ? 'Password change failed'
+      : error.message;
+
+    res.status(500).json({ message });
   }
 };
 

@@ -13,9 +13,115 @@ const upload = multer({ dest: 'uploads/' });
 router.get('/', auth, authorize('admin'), async (req, res) => {
   try {
     const users = await User.collection().find().toArray();
-    res.json(users);
+    // Remove passwords from response
+    const safeUsers = users.map(user => {
+      const { password, ...safeUser } = user;
+      return safeUser;
+    });
+    res.json(safeUsers);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching users' });
+  }
+});
+
+// Create single user (Admin only)
+router.post('/', auth, authorize('admin'), async (req, res) => {
+  try {
+    const { username, password, role, name, email, capacity } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findByUsername(username);
+    if (existingUser) {
+      return res.status(400).json({ message: 'Username already exists' });
+    }
+
+    const user = await User.create({
+      username,
+      password,
+      role,
+      name,
+      email,
+      capacity: role === 'supervisor' ? parseInt(capacity) || 0 : 0
+    });
+
+    // Return user without password
+    const { password: _, ...safeUser } = user;
+    res.status(201).json(safeUser);
+  } catch (error) {
+    res.status(400).json({ message: 'Error creating user: ' + error.message });
+  }
+});
+
+// Update supervisor capacity (Admin only)
+router.put('/:id/capacity', auth, authorize('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { capacity } = req.body;
+
+    // Validate capacity
+    const capacityNum = parseInt(capacity);
+    if (isNaN(capacityNum) || capacityNum < 0) {
+      return res.status(400).json({ message: 'Invalid capacity value' });
+    }
+
+    // Check if user exists and is a supervisor
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.role !== 'supervisor') {
+      return res.status(400).json({ message: 'Can only set capacity for supervisors' });
+    }
+
+    // Update capacity
+    await User.collection().updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          capacity: capacityNum,
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    res.json({
+      message: 'Supervisor capacity updated successfully',
+      capacity: capacityNum
+    });
+  } catch (error) {
+    console.error('Error updating capacity:', error);
+    res.status(500).json({ message: 'Error updating supervisor capacity' });
+  }
+});
+
+// Delete user (Admin only)
+router.delete('/:id', auth, authorize('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Prevent deleting yourself
+    if (user._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: 'Cannot delete your own account' });
+    }
+
+    // Prevent deleting the main System Administrator (username 'admin')
+    if (user.username === 'admin') {
+      return res.status(400).json({ message: 'Cannot delete the System Administrator account' });
+    }
+
+    await User.collection().deleteOne({ _id: new ObjectId(id) });
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ message: 'Error deleting user' });
   }
 });
 
@@ -23,9 +129,41 @@ router.get('/', auth, authorize('admin'), async (req, res) => {
 router.get('/supervisors', auth, async (req, res) => {
   try {
     const supervisors = await User.getAllByRole('supervisor');
-    res.json(supervisors);
+    // Remove passwords from response
+    const safeSupervisors = supervisors.map(supervisor => {
+      const { password, ...safeSupervisor } = supervisor;
+      return safeSupervisor;
+    });
+    res.json(safeSupervisors);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching supervisors' });
+  }
+});
+
+// optional server-side template
+router.get('/template', auth, authorize('admin'), (req, res) => {
+  try {
+    const csvContent = `username,password,role,name,email,capacity
+student1,password123,student,Student One,student1@live.mdx.ac.uk,
+student2,password123,student,Student Two,student2@live.mdx.ac.uk,
+supervisor1,password123,supervisor,Dr. Supervisor One,supervisor1@mdx.ac.mu,5
+supervisor2,password123,supervisor,Prof. Supervisor Two,supervisor2@mdx.ac.mu,3
+admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
+
+# Instructions:
+# - Required columns: username, password, role, name, email, capacity
+# - Role must be one of: student, supervisor, admin
+# - Capacity: Only required for supervisors (number of students they can supervise)
+# - Email: Use university email format
+# - Remove instruction lines (starting with #) before uploading
+# - Save as CSV (Comma delimited) format`;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=users_template.csv');
+    res.send(csvContent);
+  } catch (error) {
+    console.error('Error generating template:', error);
+    res.status(500).json({ message: 'Error generating template' });
   }
 });
 

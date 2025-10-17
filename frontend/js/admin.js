@@ -309,23 +309,484 @@ class AdminDashboard {
         }
     }
 
-    loadUserManagement() {
-        const html = `
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-2xl font-bold mb-6">User Management</h2>
-                <div class="mb-6">
-                    <button id="upload-users-btn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-                        Upload Users CSV
-                    </button>
-                    <input type="file" id="csv-file" accept=".csv" class="hidden">
-                </div>
-                <div id="users-list" class="overflow-x-auto">
-                    <!-- Users will be loaded here -->
-                </div>
-            </div>`;
+loadUserManagement() {
+    const content = $('#admin-content');
+    content.html(`
+        <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-2xl font-bold mb-6">User Management</h2>
 
-        $('#admin-content').html(html);
-        this.loadUsersList();
+        <!-- Users List -->
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">All Users</h3>
+                    <div class="flex space-x-2">
+                        <select id="role-filter" class="border rounded px-3 py-2">
+                            <option value="">All Roles</option>
+                            <option value="student">Students</option>
+                            <option value="supervisor">Supervisors</option>
+                            <option value="admin">Admins</option>
+                        </select>
+                        <input type="text" id="user-search" placeholder="Search users..." 
+                               class="border rounded px-3 py-2 w-64">
+                    </div>
+                </div>
+                <div id="users-list">
+                    <div class="text-center py-8">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                        <p class="mt-4 text-gray-600">Loading users...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Create User Form -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                <h3 class="text-lg font-semibold text-blue-800 mb-4">Create New User</h3>
+                <form id="create-user-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Username *</label>
+                        <input type="text" id="new-username" required 
+                               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Password *</label>
+                        <input type="password" id="new-password" required 
+                               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Role *</label>
+                        <select id="new-role" required 
+                                class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Role</option>
+                            <option value="student">Student</option>
+                            <option value="supervisor">Supervisor</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Full Name *</label>
+                        <input type="text" id="new-name" required 
+                               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Email</label>
+                        <input type="email" id="new-email" 
+                               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div id="capacity-field" class="hidden">
+                        <label class="block text-sm font-medium mb-2">Capacity</label>
+                        <input type="number" id="new-capacity" min="0" max="20" value="0"
+                               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="md:col-span-2 flex items-end">
+                        <button type="submit" 
+                                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 transition-colors">
+                            Create User
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Bulk Upload Section -->
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Bulk Upload Users</h3>
+                
+                <!-- Template Download Section -->
+                <div class="bg-white border border-green-200 rounded-lg p-4 mb-4">
+                    <h4 class="font-semibold text-green-800 mb-2">Download CSV Template</h4>
+                    <p class="text-sm text-gray-600 mb-3">
+                        Download the template CSV file to ensure proper formatting for bulk upload.
+                    </p>
+                    <button id="download-template-btn" 
+                            class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Download CSV Template
+                    </button>
+                </div>
+
+                <!-- Upload Section -->
+                <div class="bg-white border border-blue-200 rounded-lg p-4">
+                    <h4 class="font-semibold text-blue-800 mb-2">Upload Users CSV</h4>
+                    <form id="bulk-upload-form" enctype="multipart/form-data" class="flex items-end space-x-4">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium mb-2">CSV File</label>
+                            <input type="file" id="bulk-upload-file" accept=".csv" required
+                                   class="w-full border rounded px-3 py-2">
+                            <p class="text-xs text-gray-500 mt-1">
+                                Upload CSV file with user data. Use the template above for correct formatting.
+                            </p>
+                        </div>
+                        <button type="submit" 
+                                class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 transition-colors">
+                            Upload CSV
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- CSV Format Instructions -->
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <h4 class="font-semibold text-yellow-800 mb-2">CSV Format Instructions</h4>
+                <div class="text-sm text-yellow-700 space-y-1">
+                    <p><strong>Required columns:</strong> username, password, role, name, email, capacity</p>
+                    <p><strong>Role values:</strong> student, supervisor, admin</p>
+                    <p><strong>Capacity:</strong> Only required for supervisors (number of students they can supervise)</p>
+                    <p><strong>Example:</strong> student1,password123,student,John Doe,john@example.com,</p>
+                    <p><strong>Example:</strong> prof1,password123,supervisor,Dr. Smith,smith@example.com,5</p>
+                </div>
+            </div>
+        </div>
+    `);
+
+    // Load users data
+    this.loadUsersData();
+
+    // Event listeners
+    $('#create-user-form').on('submit', (e) => this.handleCreateUser(e));
+    $('#bulk-upload-form').on('submit', (e) => this.handleBulkUpload(e));
+    $('#download-template-btn').on('click', () => this.downloadCSVTemplate());
+    $('#new-role').on('change', (e) => this.toggleCapacityField(e.target.value));
+    $('#role-filter').on('change', () => this.filterUsers());
+    $('#user-search').on('input', () => this.filterUsers());
+}
+
+    // Add this method to the AdminDashboard class
+    downloadCSVTemplate() {
+        try {
+            // Create CSV template content
+            const csvContent = `username,password,role,name,email,capacity
+student1,password123,student,Student One,student1@live.mdx.ac.uk,
+student2,password123,student,Student Two,student2@live.mdx.ac.uk,
+supervisor1,password123,supervisor,Dr. Supervisor One,supervisor1@mdx.ac.mu,5
+supervisor2,password123,supervisor,Prof. Supervisor Two,supervisor2@mdx.ac.mu,3
+admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
+
+# Instructions:
+# - Required columns: username, password, role, name, email, capacity
+# - Role must be one of: student, supervisor, admin
+# - Capacity: Only required for supervisors (number of students they can supervise)
+# - Email: Use university email format
+# - Remove instruction lines (starting with #) before uploading
+# - Save as CSV (Comma delimited) format`;
+
+            // Create blob and download link
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'users_template.csv';
+            document.body.appendChild(a);
+            a.click();
+
+            // Clean up
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            SweetAlert.success('Template downloaded successfully!');
+
+        } catch (error) {
+            console.error('Error downloading template:', error);
+            SweetAlert.error('Error downloading template: ' + error.message);
+        }
+    }
+
+    // Add these methods to the AdminDashboard class
+    toggleCapacityField(role) {
+        const capacityField = $('#capacity-field');
+        if (role === 'supervisor') {
+            capacityField.removeClass('hidden');
+            $('#new-capacity').prop('required', true);
+        } else {
+            capacityField.addClass('hidden');
+            $('#new-capacity').prop('required', false);
+        }
+    }
+
+    async handleCreateUser(e) {
+        e.preventDefault();
+
+        const userData = {
+            username: $('#new-username').val().trim(),
+            password: $('#new-password').val(),
+            role: $('#new-role').val(),
+            name: $('#new-name').val().trim(),
+            email: $('#new-email').val().trim(),
+            capacity: $('#new-role').val() === 'supervisor' ? parseInt($('#new-capacity').val()) || 0 : 0
+        };
+
+        // Validation
+        if (!userData.username || !userData.password || !userData.role || !userData.name) {
+            await SweetAlert.error('Please fill in all required fields');
+            return;
+        }
+
+        if (userData.password.length < 6) {
+            await SweetAlert.error('Password must be at least 6 characters long');
+            return;
+        }
+
+        try {
+            SweetAlert.loading('Creating user...');
+
+            const response = await $.ajax({
+                url: '/api/users',
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                contentType: 'application/json',
+                data: JSON.stringify(userData)
+            });
+
+            SweetAlert.close();
+            await SweetAlert.success(`User ${userData.username} created successfully!`);
+
+            // Reset form
+            $('#create-user-form')[0].reset();
+            $('#capacity-field').addClass('hidden');
+
+            // Reload users list
+            this.loadUsersData();
+
+        } catch (error) {
+            SweetAlert.close();
+            await SweetAlert.error('Error creating user: ' + (error.responseJSON?.message || error.statusText));
+        }
+    }
+
+    async loadUsersData() {
+        try {
+            const users = await $.ajax({
+                url: '/api/users',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            this.allUsers = users || [];
+            this.currentFilteredUsers = [...this.allUsers];
+            this.renderUsersList();
+
+        } catch (error) {
+            console.error('Error loading users:', error);
+            $('#users-list').html(`
+            <div class="text-center py-8 text-red-500">
+                <p>Error loading users data. Please try again.</p>
+            </div>
+        `);
+        }
+    }
+
+    renderUsersList() {
+        const container = $('#users-list');
+        const users = this.currentFilteredUsers;
+
+        if (users.length === 0) {
+            container.html(`
+            <div class="text-center py-8">
+                <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                </svg>
+                <p class="text-gray-500 text-lg">No users found</p>
+                <p class="text-gray-400 mt-2">Create a new user or upload a CSV file.</p>
+            </div>
+        `);
+            return;
+        }
+
+        let html = `
+        <div class="overflow-x-auto border rounded-lg">
+            <table class="min-w-full table-auto">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+    `;
+
+        users.forEach(user => {
+            const roleBadge = user.role === 'admin' ? 'bg-red-100 text-red-800' :
+                user.role === 'supervisor' ? 'bg-blue-100 text-blue-800' :
+                    'bg-green-100 text-green-800';
+
+            // Check if this is the main System Administrator (username 'admin')
+            const isSystemAdmin = user.username === 'admin';
+
+            html += `
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="ml-4">
+                            <div class="text-sm font-medium text-gray-900">${user.name}</div>
+                            <div class="text-sm text-gray-500">${user.username}</div>
+                            ${isSystemAdmin ? '<div class="text-xs text-red-600 font-semibold">System Administrator</div>' : ''}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleBadge}">
+                        ${user.role}
+                    </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    ${user.email || 'N/A'}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    ${user.role === 'supervisor' ? `
+                        <div class="flex items-center space-x-2">
+                            <input type="number" 
+                                   value="${user.capacity || 0}" 
+                                   min="0" 
+                                   max="20"
+                                   data-user-id="${user._id}"
+                                   class="capacity-input w-20 border rounded px-2 py-1 text-sm">
+                            <button class="save-capacity-btn bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 hidden"
+                                    data-user-id="${user._id}">
+                                Save
+                            </button>
+                        </div>
+                    ` : 'N/A'}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    ${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm">
+                    ${!isSystemAdmin ? `
+                        <button class="delete-user-btn bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                                data-user-id="${user._id}" data-username="${user.username}">
+                            Delete
+                        </button>
+                    ` : `
+                        <span class="text-xs text-gray-400 italic">Protected</span>
+                    `}
+                </td>
+            </tr>
+        `;
+        });
+
+        html += `</tbody></table></div>`;
+        container.html(html);
+
+        // Add event listeners for dynamic elements
+        this.attachUserManagementEvents();
+    }
+
+
+    attachUserManagementEvents() {
+        // Capacity input change events
+        $('.capacity-input').on('input', (e) => {
+            const userId = $(e.target).data('user-id');
+            $(`.save-capacity-btn[data-user-id="${userId}"]`).removeClass('hidden');
+        });
+
+        // Save capacity events
+        $('.save-capacity-btn').on('click', (e) => {
+            const userId = $(e.target).data('user-id');
+            this.updateSupervisorCapacity(userId);
+        });
+
+        // Delete user events
+        $('.delete-user-btn').on('click', (e) => {
+            const userId = $(e.target).data('user-id');
+            const username = $(e.target).data('username');
+            this.deleteUser(userId, username);
+        });
+    }
+
+    async updateSupervisorCapacity(userId) {
+        const newCapacity = parseInt($(`.capacity-input[data-user-id="${userId}"]`).val());
+
+        if (isNaN(newCapacity) || newCapacity < 0) {
+            await SweetAlert.error('Please enter a valid capacity number');
+            return;
+        }
+
+        try {
+            SweetAlert.loading('Updating capacity...');
+
+            const response = await $.ajax({
+                url: `/api/users/${userId}/capacity`,
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                contentType: 'application/json',
+                data: JSON.stringify({ capacity: newCapacity })
+            });
+
+            SweetAlert.close();
+            await SweetAlert.success('Supervisor capacity updated successfully!');
+
+            // Hide save button
+            $(`.save-capacity-btn[data-user-id="${userId}"]`).addClass('hidden');
+
+            // Reload users to reflect changes
+            this.loadUsersData();
+
+        } catch (error) {
+            SweetAlert.close();
+            await SweetAlert.error('Error updating capacity: ' + (error.responseJSON?.message || error.statusText));
+        }
+    }
+
+    async deleteUser(userId, username) {
+        const result = await SweetAlert.confirm(
+            'Delete User?',
+            `Are you sure you want to delete user "${username}"? This action cannot be undone.`
+        );
+
+        if (!result.isConfirmed) return;
+
+        try {
+            SweetAlert.loading('Deleting user...');
+
+            await $.ajax({
+                url: `/api/users/${userId}`,
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            SweetAlert.close();
+            await SweetAlert.success(`User ${username} deleted successfully!`);
+
+            // Reload users list
+            this.loadUsersData();
+
+        } catch (error) {
+            SweetAlert.close();
+            await SweetAlert.error('Error deleting user: ' + (error.responseJSON?.message || error.statusText));
+        }
+    }
+
+    filterUsers() {
+        const roleFilter = $('#role-filter').val();
+        const searchTerm = $('#user-search').val().toLowerCase();
+
+        this.currentFilteredUsers = this.allUsers.filter(user => {
+            // Role filter
+            if (roleFilter && user.role !== roleFilter) {
+                return false;
+            }
+
+            // Search filter
+            if (searchTerm) {
+                const name = user.name.toLowerCase();
+                const username = user.username.toLowerCase();
+                const email = user.email ? user.email.toLowerCase() : '';
+
+                if (!name.includes(searchTerm) &&
+                    !username.includes(searchTerm) &&
+                    !email.includes(searchTerm)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        this.renderUsersList();
     }
 
     showUploadModal() {

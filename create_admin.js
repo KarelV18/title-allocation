@@ -2,7 +2,7 @@ require('dotenv').config();
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
 
-const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://msharma_db:Tit13_system@cluster0.ddd6yk5.mongodb.net/title-allocation?retryWrites=true&w=majority';
+const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://msharma_db:Tit13_system@cluster0.ddd6yk5.mongodb.net/title_allocation?retryWrites=true&w=majority';
 
 async function createAdmin() {
   let client;
