@@ -129,6 +129,10 @@ class Auth {
             <h3 class="text-lg font-semibold mb-2">Second Markers</h3>
             <p class="text-gray-600 text-sm">Assign second markers for VIVA examinations</p>
         </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="cache-stats-card">
+            <h3 class="text-lg font-semibold mb-2">Cache Statistics</h3>
+            <p class="text-gray-600 text-sm">View system cache usage and performance</p>
+        </div>
         <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="system-settings-card">
             <h3 class="text-lg font-semibold mb-2">System Settings</h3>
             <p class="text-gray-600 text-sm">Set deadlines and allocation status</p>
@@ -206,6 +210,12 @@ class Auth {
         $('#finalized-allocations-card').on('click', () => {
             if (window.adminDashboard) {
                 window.adminDashboard.loadFinalizedAllocations();
+            }
+        });
+
+        $('#cache-stats-card').on('click', () => {
+            if (window.adminDashboard) {
+                window.adminDashboard.loadCacheStatistics();
             }
         });
 

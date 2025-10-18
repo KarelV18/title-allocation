@@ -825,43 +825,32 @@ class StudentDashboard {
 
 
     // Update the loadMyAllocation method to show custom title status
-    async loadMyAllocation() {
-        try {
+async loadMyAllocation() {
+    try {
+        const [allocationResponse, settings, preferences] = await Promise.all([
+            this.apiCache.call('/api/allocations').catch(() => null),
+            this.apiCache.call('/api/system-settings').catch(() => ({ allocationCompleted: false })),
+            this.apiCache.call('/api/preferences').catch(() => null)
+        ]);
 
-            const [allocation, settings, preferences] = await Promise.all([
-                this.apiCache.call('/api/allocations').catch(() => null),
-                this.apiCache.call('/api/system-settings').catch(() => ({ allocationCompleted: false })),
-                this.apiCache.call('/api/preferences').catch(() => null)
-            ]);
+        // Handle the allocation response - it could be an array or a single object
+        let allocation = null;
+        if (Array.isArray(allocationResponse)) {
+            // If it's an array, take the first element (student should only have one allocation)
+            allocation = allocationResponse.length > 0 ? allocationResponse[0] : null;
+        } else {
+            // If it's already an object or null, use it directly
+            allocation = allocationResponse;
+        }
 
-            // const [allocation, settings, preferences] = await Promise.all([
-            //     $.ajax({
-            //         url: '/api/allocations',
-            //         method: 'GET',
-            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            //     }).catch(() => null), // Return null if no allocation
-
-            //     $.ajax({
-            //         url: '/api/system-settings',
-            //         method: 'GET',
-            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            //     }).catch(() => ({ allocationCompleted: false })),
-
-            //     $.ajax({
-            //         url: '/api/preferences',
-            //         method: 'GET',
-            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            //     }).catch(() => null)
-            // ]);
-
-            let html = `
+        let html = `
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-2xl font-bold mb-6">My Project Allocation</h2>
         `;
 
-            // Check if allocation process has been completed
-            if (!settings.allocationCompleted) {
-                html += `
+        // Check if allocation process has been completed
+        if (!settings.allocationCompleted) {
+            html += `
             <div class="text-center py-8">
                 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 inline-block">
                     <svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -872,9 +861,9 @@ class StudentDashboard {
                 </div>
             </div>
         `;
-            } else if (!allocation) {
-                // Allocation completed but no allocation found for this student
-                html += `
+        } else if (!allocation || !allocation.title) {
+            // Allocation completed but no allocation found for this student OR allocation exists but has no title
+            html += `
             <div class="text-center py-8">
                 <div class="bg-red-50 border border-red-200 rounded-lg p-6 inline-block">
                     <svg class="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -886,12 +875,12 @@ class StudentDashboard {
                 </div>
             </div>
         `;
-            } else {
-                // SUCCESS: Student has an allocation
-                const hasCustomTitle = preferences && preferences.customTitle;
-                const customTitleStatus = hasCustomTitle ? preferences.customTitle.status : null;
+        } else {
+            // SUCCESS: Student has an allocation
+            const hasCustomTitle = preferences && preferences.customTitle;
+            const customTitleStatus = hasCustomTitle ? preferences.customTitle.status : null;
 
-                html += `
+            html += `
             <div class="max-w-4xl mx-auto">
                 ${hasCustomTitle ? `
                 <div class="mb-6 p-4 border rounded-lg ${customTitleStatus === 'approved' ? 'bg-green-50 border-green-200' :
@@ -1028,13 +1017,13 @@ class StudentDashboard {
                 </div>
             </div>
         `;
-            }
+        }
 
-            html += `</div>`;
-            $('#student-content').html(html);
-        } catch (error) {
-            console.error('Error loading allocation:', error);
-            $('#student-content').html(`
+        html += `</div>`;
+        $('#student-content').html(html);
+    } catch (error) {
+        console.error('Error loading allocation:', error);
+        $('#student-content').html(`
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-2xl font-bold mb-6">My Allocation</h2>
             <div class="text-center py-8 text-red-500">
@@ -1042,8 +1031,8 @@ class StudentDashboard {
             </div>
         </div>
         `);
-        }
     }
+}
 
     showSuccess(message) {
         const successHtml = `
