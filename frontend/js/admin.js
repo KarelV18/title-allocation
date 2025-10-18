@@ -309,9 +309,65 @@ class AdminDashboard {
         }
     }
 
-loadUserManagement() {
-    const content = $('#admin-content');
-    content.html(`
+    loadCacheStatistics() {
+        const content = $('#admin-content');
+        const stats = window.cacheManager.getStats();
+
+        content.html(`
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Cache Statistics</h2>
+                <div class="flex space-x-2">
+                    <button id="refresh-cache-stats" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Refresh
+                    </button>
+                    <button id="clear-all-cache" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                        Clear All Cache
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="text-2xl font-bold text-blue-700">${stats.totalEntries}</div>
+                    <div class="text-sm text-blue-600">Cache Entries</div>
+                </div>
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="text-2xl font-bold text-green-700">${stats.totalSize}</div>
+                    <div class="text-sm text-green-600">Cache Size</div>
+                </div>
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div class="text-2xl font-bold text-purple-700">${Math.round(window.cacheManager.defaultTTL / 60000)} min</div>
+                    <div class="text-sm text-purple-600">Default TTL</div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold mb-2">Cache Entries</h3>
+                <div class="bg-gray-50 border rounded-lg p-4 max-h-64 overflow-y-auto">
+                    ${stats.cacheKeys.length > 0 ?
+                stats.cacheKeys.map(key => `<div class="text-sm font-mono py-1 border-b">${key}</div>`).join('') :
+                '<p class="text-gray-500">No cache entries</p>'
+            }
+                </div>
+            </div>
+        </div>
+    `);
+
+        $('#refresh-cache-stats').on('click', () => this.loadCacheStatistics());
+        $('#clear-all-cache').on('click', async () => {
+            const result = await SweetAlert.confirm('Clear All Cache', 'This will clear all cached data. Continue?');
+            if (result.isConfirmed) {
+                window.cacheManager.clearAll();
+                await SweetAlert.success('Cache cleared successfully!');
+                this.loadCacheStatistics();
+            }
+        });
+    }
+
+    loadUserManagement() {
+        const content = $('#admin-content');
+        content.html(`
         <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-2xl font-bold mb-6">User Management</h2>
 
@@ -439,17 +495,17 @@ loadUserManagement() {
         </div>
     `);
 
-    // Load users data
-    this.loadUsersData();
+        // Load users data
+        this.loadUsersData();
 
-    // Event listeners
-    $('#create-user-form').on('submit', (e) => this.handleCreateUser(e));
-    $('#bulk-upload-form').on('submit', (e) => this.handleBulkUpload(e));
-    $('#download-template-btn').on('click', () => this.downloadCSVTemplate());
-    $('#new-role').on('change', (e) => this.toggleCapacityField(e.target.value));
-    $('#role-filter').on('change', () => this.filterUsers());
-    $('#user-search').on('input', () => this.filterUsers());
-}
+        // Event listeners
+        $('#create-user-form').on('submit', (e) => this.handleCreateUser(e));
+        $('#bulk-upload-form').on('submit', (e) => this.handleBulkUpload(e));
+        $('#download-template-btn').on('click', () => this.downloadCSVTemplate());
+        $('#new-role').on('change', (e) => this.toggleCapacityField(e.target.value));
+        $('#role-filter').on('change', () => this.filterUsers());
+        $('#user-search').on('input', () => this.filterUsers());
+    }
 
     // Add this method to the AdminDashboard class
     downloadCSVTemplate() {

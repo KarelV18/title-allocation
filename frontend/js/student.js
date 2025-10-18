@@ -1,5 +1,6 @@
 class StudentDashboard {
     constructor() {
+        this.apiCache = window.apiCache;
         this.init();
     }
 
@@ -23,25 +24,31 @@ class StudentDashboard {
 
     async loadDashboard() {
         try {
+
             const [settings, allocation, canEditResponse] = await Promise.all([
-                $.ajax({
-                    url: '/api/system-settings',
-                    method: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-                }).catch(() => ({ preferenceDeadline: null, allocationCompleted: false })),
-
-                $.ajax({
-                    url: '/api/allocations',
-                    method: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-                }).catch(() => null),
-
-                $.ajax({
-                    url: '/api/system-settings/can-edit-preferences',
-                    method: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-                }).catch(() => ({ canEdit: true, allocationCompleted: false }))
+                this.apiCache.call('/api/system-settings').catch(() => ({ preferenceDeadline: null, allocationCompleted: false })),
+                this.apiCache.call('/api/allocations').catch(() => null),
+                this.apiCache.call('/api/system-settings/can-edit-preferences').catch(() => ({ canEdit: true, allocationCompleted: false }))
             ]);
+            // const [settings, allocation, canEditResponse] = await Promise.all([
+            //     $.ajax({
+            //         url: '/api/system-settings',
+            //         method: 'GET',
+            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            //     }).catch(() => ({ preferenceDeadline: null, allocationCompleted: false })),
+
+            //     $.ajax({
+            //         url: '/api/allocations',
+            //         method: 'GET',
+            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            //     }).catch(() => null),
+
+            //     $.ajax({
+            //         url: '/api/system-settings/can-edit-preferences',
+            //         method: 'GET',
+            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            //     }).catch(() => ({ canEdit: true, allocationCompleted: false }))
+            // ]);
 
             const canEditPreferences = canEditResponse.canEdit;
             const allocationCompleted = settings.allocationCompleted;
@@ -295,13 +302,13 @@ class StudentDashboard {
 
     async loadTitleSelection() {
         try {
-
+            const canEditResponse = await this.apiCache.call('/api/system-settings/can-edit-preferences');
             // Check if still allowed to edit
-            const canEditResponse = await $.ajax({
-                url: '/api/system-settings/can-edit-preferences',
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            });
+            // const canEditResponse = await $.ajax({
+            //     url: '/api/system-settings/can-edit-preferences',
+            //     method: 'GET',
+            //     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            // });
 
             if (!canEditResponse.canEdit) {
                 await SweetAlert.error(
@@ -312,23 +319,30 @@ class StudentDashboard {
                 return;
             }
 
+            const [supervisors, existingPreferences, titles, settings] = await Promise.all([
+                this.loadSupervisors(),
+                this.apiCache.call('/api/preferences').catch(() => null),
+                this.apiCache.call('/api/titles'),
+                this.apiCache.call('/api/system-settings').catch(() => ({ preferenceDeadline: null }))
+            ]);
+
             // Continue with existing title selection loading...
             // Load supervisors for dropdown and grouping
-            const supervisors = await this.loadSupervisors();
+            // const supervisors = await this.loadSupervisors();
 
-            // Check if student already has preferences
-            const existingPreferences = await $.ajax({
-                url: '/api/preferences',
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            });
+            // // Check if student already has preferences
+            // const existingPreferences = await $.ajax({
+            //     url: '/api/preferences',
+            //     method: 'GET',
+            //     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            // });
 
-            // Get available titles
-            const titles = await $.ajax({
-                url: '/api/titles',
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            });
+            // // Get available titles
+            // const titles = await $.ajax({
+            //     url: '/api/titles',
+            //     method: 'GET',
+            //     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            // });
 
             const approvedTitles = titles.filter(title => title.status === 'approved');
 
@@ -342,11 +356,11 @@ class StudentDashboard {
 
 
             // Get system settings for deadline display
-            const settings = await $.ajax({
-                url: '/api/system-settings',
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            }).catch(() => ({ preferenceDeadline: null }));
+            // const settings = await $.ajax({
+            //     url: '/api/system-settings',
+            //     method: 'GET',
+            //     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            // }).catch(() => ({ preferenceDeadline: null }));
 
             let html = `
             <div class="bg-white rounded-lg shadow p-6">
@@ -485,18 +499,21 @@ class StudentDashboard {
         }
     }
 
+    // async loadSupervisors() {
+    //     try {
+    //         const response = await $.ajax({
+    //             url: '/api/users/supervisors',
+    //             method: 'GET',
+    //             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+    //         });
+    //         return response;
+    //     } catch (error) {
+    //         console.error('Error loading supervisors:', error);
+    //         return [];
+    //     }
+    // }
     async loadSupervisors() {
-        try {
-            const response = await $.ajax({
-                url: '/api/users/supervisors',
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            });
-            return response;
-        } catch (error) {
-            console.error('Error loading supervisors:', error);
-            return [];
-        }
+        return await this.apiCache.call('/api/users/supervisors');
     }
 
     renderSelectedPreferences(preferences) {
@@ -794,6 +811,10 @@ class StudentDashboard {
             });
 
             await SweetAlert.success('Preferences submitted successfully!');
+
+            // Invalidate cache for allocations and preferences
+            window.apiCache.invalidateRelatedCache('/api/preferences', 'POST');
+
             setTimeout(() => {
                 this.loadMyAllocation();
             }, 2000);
@@ -806,25 +827,32 @@ class StudentDashboard {
     // Update the loadMyAllocation method to show custom title status
     async loadMyAllocation() {
         try {
+
             const [allocation, settings, preferences] = await Promise.all([
-                $.ajax({
-                    url: '/api/allocations',
-                    method: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-                }).catch(() => null), // Return null if no allocation
-
-                $.ajax({
-                    url: '/api/system-settings',
-                    method: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-                }).catch(() => ({ allocationCompleted: false })),
-
-                $.ajax({
-                    url: '/api/preferences',
-                    method: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-                }).catch(() => null)
+                this.apiCache.call('/api/allocations').catch(() => null),
+                this.apiCache.call('/api/system-settings').catch(() => ({ allocationCompleted: false })),
+                this.apiCache.call('/api/preferences').catch(() => null)
             ]);
+
+            // const [allocation, settings, preferences] = await Promise.all([
+            //     $.ajax({
+            //         url: '/api/allocations',
+            //         method: 'GET',
+            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            //     }).catch(() => null), // Return null if no allocation
+
+            //     $.ajax({
+            //         url: '/api/system-settings',
+            //         method: 'GET',
+            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            //     }).catch(() => ({ allocationCompleted: false })),
+
+            //     $.ajax({
+            //         url: '/api/preferences',
+            //         method: 'GET',
+            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            //     }).catch(() => null)
+            // ]);
 
             let html = `
         <div class="bg-white rounded-lg shadow p-6">
