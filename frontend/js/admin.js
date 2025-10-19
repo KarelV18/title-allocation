@@ -1493,6 +1493,31 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
       <h2 class="text-2xl font-bold mb-6">System Settings</h2>
       
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Supervisor Title Submission Deadline -->
+        <div class="border rounded-lg p-6">
+          <h3 class="text-lg font-semibold mb-4 text-green-700">Supervisor Titles</h3>
+          <form id="title-submission-deadline-form">
+            <div class="mb-4">
+              <label class="block text-sm font-medium mb-2">Title Submission Deadline</label>
+              <input type="datetime-local" id="title-submission-deadline" 
+                     class="w-full border rounded px-3 py-2" 
+                     value="${titleSubmissionDeadline}">
+              <p class="text-sm text-gray-500 mt-1">
+                Supervisors cannot add/edit titles after this deadline.
+              </p>
+            </div>
+            <div class="flex justify-between">
+              <button type="button" id="clear-title-deadline" class="text-red-500 hover:text-red-700">
+                Clear Deadline
+              </button>
+              <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                Save Deadline
+              </button>
+            </div>
+          </form>
+        </div>
+
         <!-- Student Preference Deadline -->
         <div class="border rounded-lg p-6">
           <h3 class="text-lg font-semibold mb-4 text-blue-700">Student Preferences</h3>
@@ -1517,32 +1542,40 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
           </form>
         </div>
 
-        <!-- Supervisor Title Submission Deadline -->
-        <div class="border rounded-lg p-6">
-          <h3 class="text-lg font-semibold mb-4 text-green-700">Supervisor Titles</h3>
-          <form id="title-submission-deadline-form">
-            <div class="mb-4">
-              <label class="block text-sm font-medium mb-2">Title Submission Deadline</label>
-              <input type="datetime-local" id="title-submission-deadline" 
-                     class="w-full border rounded px-3 py-2" 
-                     value="${titleSubmissionDeadline}">
-              <p class="text-sm text-gray-500 mt-1">
-                Supervisors cannot add/edit titles after this deadline.
-              </p>
-            </div>
-            <div class="flex justify-between">
-              <button type="button" id="clear-title-deadline" class="text-red-500 hover:text-red-700">
-                Clear Deadline
-              </button>
-              <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-                Save Deadline
-              </button>
-            </div>
-          </form>
-        </div>
       </div>
 
-      <!-- Allocation Status -->
+      <!-- Current Status Display -->
+        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h4 class="font-semibold mb-2">Current System Status:</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <!-- Left Column: Supervisor Title Editing -->
+            <div>
+            <span class="font-medium">Supervisor Title Editing:</span>
+            <span class="ml-2 ${response.titleSubmissionDeadline && new Date() > new Date(response.titleSubmissionDeadline) ? 'text-red-600' : 'text-green-600'}">
+                ${response.titleSubmissionDeadline && new Date() > new Date(response.titleSubmissionDeadline) ? 'DISABLED (Deadline passed)' : 'ENABLED'}
+            </span>
+            </div>
+
+            <!-- Right Column: Student Preference Editing + Allocation View -->
+            <div class="space-y-2">
+            <div>
+                <span class="font-medium">Student Preference Editing:</span>
+                <span class="ml-2 ${response.preferenceDeadline && new Date() > new Date(response.preferenceDeadline) ? 'text-red-600' : 'text-green-600'}">
+                ${response.preferenceDeadline && new Date() > new Date(response.preferenceDeadline) ? 'DISABLED (Deadline passed)' : 'ENABLED'}
+                </span>
+            </div>
+            <div>
+                <span class="font-medium">Allocation View:</span>
+                <span class="ml-2 ${response.allocationCompleted ? 'text-green-600' : 'text-yellow-600'}">
+                ${response.allocationCompleted ? 'ACTIVE' : 'INACTIVE'}
+                </span>
+            </div>
+            </div>
+        </div>
+        </div>
+
+
+            <!-- Allocation Status -->
       <div class="border rounded-lg p-6 mt-6">
         <h3 class="text-lg font-semibold mb-4">Allocation Status</h3>
         <div class="mb-4">
@@ -1566,31 +1599,6 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
                   ${allocationStatus === 'not completed' ? 'disabled' : ''}>
             Mark Allocation Pending
           </button>
-        </div>
-      </div>
-
-      <!-- Current Status Display -->
-      <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-        <h4 class="font-semibold mb-2">Current System Status:</h4>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <span class="font-medium">Student Preference Editing:</span>
-            <span class="ml-2 ${response.preferenceDeadline && new Date() > new Date(response.preferenceDeadline) ? 'text-red-600' : 'text-green-600'}">
-              ${response.preferenceDeadline && new Date() > new Date(response.preferenceDeadline) ? 'DISABLED (Deadline passed)' : 'ENABLED'}
-            </span>
-          </div>
-          <div>
-            <span class="font-medium">Supervisor Title Editing:</span>
-            <span class="ml-2 ${response.titleSubmissionDeadline && new Date() > new Date(response.titleSubmissionDeadline) ? 'text-red-600' : 'text-green-600'}">
-              ${response.titleSubmissionDeadline && new Date() > new Date(response.titleSubmissionDeadline) ? 'DISABLED (Deadline passed)' : 'ENABLED'}
-            </span>
-          </div>
-          <div>
-            <span class="font-medium">Allocation View:</span>
-            <span class="ml-2 ${response.allocationCompleted ? 'text-green-600' : 'text-yellow-600'}">
-              ${response.allocationCompleted ? 'ACTIVE' : 'INACTIVE'}
-            </span>
-          </div>
         </div>
       </div>
     </div>
