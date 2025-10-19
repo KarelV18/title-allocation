@@ -97,17 +97,13 @@ class Auth {
             <h3 class="text-lg font-semibold mb-2">Title Management</h3>
             <p class="text-gray-600 text-sm">Manage and approve supervisor titles</p>
         </div>
-        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="allocation-management-card">
-            <h3 class="text-lg font-semibold mb-2">Publish Allocation</h3>
-            <p class="text-gray-600 text-sm">Publish or Unpublish the title/supervisor allocation</p>
-        </div>
         <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="manage-users-card">
             <h3 class="text-lg font-semibold mb-2">User Management</h3>
             <p class="text-gray-600 text-sm">Manage users and bulk upload</p>
         </div>
         <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="student-choices-card">
             <h3 class="text-lg font-semibold mb-2">Student Choices</h3>
-            <p class="text-gray-600 text-sm">View all student preferences & custom titles</p>
+            <p class="text-gray-600 text-sm">View all student preferences & proposed custom titles</p>
         </div>
         <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="custom-titles-card">
             <h3 class="text-lg font-semibold mb-2">Custom Titles</h3>
@@ -117,26 +113,32 @@ class Auth {
             <h3 class="text-lg font-semibold mb-2">Allocation</h3>
             <p class="text-gray-600 text-sm">Run title allocation process</p>
         </div>
-        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="finalized-allocations-card">
-            <h3 class="text-lg font-semibold mb-2">Finalized Allocations</h3>
-            <p class="text-gray-600 text-sm">View complete allocation results</p>
-        </div>
-        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="supervisor-assignment-card">
-            <h3 class="text-lg font-semibold mb-2">Supervisor Assignment</h3>
-            <p class="text-gray-600 text-sm">Assign supervisors to pending allocations</p>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="allocation-management-card">
+            <h3 class="text-lg font-semibold mb-2">Publish Allocation</h3>
+            <p class="text-gray-600 text-sm">Publish or Unpublish the title/supervisor allocation</p>
         </div>
         <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="capacity-conflicts-card">
             <h3 class="text-lg font-semibold mb-2">Capacity Conflicts</h3>
             <p class="text-gray-600 text-sm">Resolve supervisor capacity issues</p>
         </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="finalized-allocations-card">
+            <h3 class="text-lg font-semibold mb-2">Finalized Allocations</h3>
+            <p class="text-gray-600 text-sm">View complete allocation results</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="supervisor-assignment-card">
+            <h3 class="text-lg font-semibold mb-2">Supervisor Capacity</h3>
+            <p class="text-gray-600 text-sm">Assign supervisors to pending allocations or view capacity stats</p>
+        </div>
         <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="second-marker-card">
             <h3 class="text-lg font-semibold mb-2">Second Markers</h3>
             <p class="text-gray-600 text-sm">Assign second markers for VIVA examinations</p>
         </div>
+        <!--
         <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="cache-stats-card">
             <h3 class="text-lg font-semibold mb-2">Cache Statistics</h3>
             <p class="text-gray-600 text-sm">View system cache usage and performance</p>
         </div>
+        -->
         <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="system-settings-card">
             <h3 class="text-lg font-semibold mb-2">System Settings</h3>
             <p class="text-gray-600 text-sm">Set deadlines and allocation status</p>
