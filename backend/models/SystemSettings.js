@@ -55,6 +55,27 @@ class SystemSettings {
         return new Date() < new Date(settings.preferenceDeadline);
     }
 
+    static async updateTitleSubmissionDeadline(deadline) {
+        return await this.collection().updateOne(
+            {},
+            {
+                $set: {
+                    titleSubmissionDeadline: new Date(deadline),
+                    updatedAt: new Date()
+                }
+            },
+            { upsert: true }
+        );
+    }
+
+    static async isBeforeTitleSubmissionDeadline() {
+        const settings = await this.getSettings();
+        if (!settings.titleSubmissionDeadline) {
+            return true; // No deadline set, always allow
+        }
+        return new Date() < new Date(settings.titleSubmissionDeadline);
+    }
+
     static async isAllocationCompleted() {
         const settings = await this.getSettings();
         return settings.allocationCompleted || false;

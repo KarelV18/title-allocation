@@ -1471,7 +1471,7 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
         $('#results-count').text(countText);
     }
 
-    // Add to AdminDashboard class
+    // updated system settings
     async loadSystemSettings() {
         try {
             const response = await $.ajax({
@@ -1480,94 +1480,195 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
             });
 
-            const deadline = response.preferenceDeadline ?
+            const preferenceDeadline = response.preferenceDeadline ?
                 new Date(response.preferenceDeadline).toISOString().slice(0, 16) : '';
+
+            const titleSubmissionDeadline = response.titleSubmissionDeadline ?
+                new Date(response.titleSubmissionDeadline).toISOString().slice(0, 16) : '';
 
             const allocationStatus = response.allocationCompleted ? 'completed' : 'not completed';
 
             const html = `
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-2xl font-bold mb-6">System Settings</h2>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Deadline Settings -->
-                    <div class="border rounded-lg p-6">
-                        <h3 class="text-lg font-semibold mb-4">Preference Deadline</h3>
-                        <form id="deadline-form">
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium mb-2">Deadline Date & Time</label>
-                                <input type="datetime-local" id="preference-deadline" 
-                                       class="w-full border rounded px-3 py-2" 
-                                       value="${deadline}">
-                                <p class="text-sm text-gray-500 mt-1">
-                                    Students cannot edit preferences after this deadline.
-                                </p>
-                            </div>
-                            <div class="flex justify-between">
-                                <button type="button" id="clear-deadline" class="text-red-500 hover:text-red-700">
-                                    Clear Deadline
-                                </button>
-                                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                                    Save Deadline
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    <!-- Allocation Status -->
-                    <div class="border rounded-lg p-6">
-                        <h3 class="text-lg font-semibold mb-4">Allocation Status</h3>
-                        <div class="mb-4">
-                            <p class="text-sm text-gray-600 mb-2">Current Status: 
-                                <span class="font-semibold ${allocationStatus === 'completed' ? 'text-green-600' : 'text-yellow-600'}">
-                                    ${allocationStatus.toUpperCase()}
-                                </span>
-                            </p>
-                            <p class="text-xs text-gray-500">
-                                When allocation is completed, students can only view their allocation and cannot edit preferences.
-                            </p>
-                        </div>
-                        <div class="flex space-x-2">
-                            <button id="mark-allocation-completed" 
-                                    class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 ${allocationStatus === 'completed' ? 'opacity-50 cursor-not-allowed' : ''}"
-                                    ${allocationStatus === 'completed' ? 'disabled' : ''}>
-                                Mark Allocation Completed
-                            </button>
-                            <button id="mark-allocation-pending" 
-                                    class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 ${allocationStatus === 'not completed' ? 'opacity-50 cursor-not-allowed' : ''}"
-                                    ${allocationStatus === 'not completed' ? 'disabled' : ''}>
-                                Mark Allocation Pending
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Current Status Display -->
-                <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <h4 class="font-semibold mb-2">Current System Status:</h4>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <span class="font-medium">Preference Editing:</span>
-                            <span class="ml-2 ${response.preferenceDeadline && new Date() > new Date(response.preferenceDeadline) ? 'text-red-600' : 'text-green-600'}">
-                                ${response.preferenceDeadline && new Date() > new Date(response.preferenceDeadline) ? 'DISABLED (Deadline passed)' : 'ENABLED'}
-                            </span>
-                        </div>
-                        <div>
-                            <span class="font-medium">Allocation View:</span>
-                            <span class="ml-2 ${response.allocationCompleted ? 'text-green-600' : 'text-yellow-600'}">
-                                ${response.allocationCompleted ? 'ACTIVE' : 'INACTIVE'}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+    <div class="bg-white rounded-lg shadow p-6">
+      <h2 class="text-2xl font-bold mb-6">System Settings</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Student Preference Deadline -->
+        <div class="border rounded-lg p-6">
+          <h3 class="text-lg font-semibold mb-4 text-blue-700">Student Preferences</h3>
+          <form id="preference-deadline-form">
+            <div class="mb-4">
+              <label class="block text-sm font-medium mb-2">Preference Deadline</label>
+              <input type="datetime-local" id="preference-deadline" 
+                     class="w-full border rounded px-3 py-2" 
+                     value="${preferenceDeadline}">
+              <p class="text-sm text-gray-500 mt-1">
+                Students cannot edit preferences after this deadline.
+              </p>
             </div>
-        `;
+            <div class="flex justify-between">
+              <button type="button" id="clear-preference-deadline" class="text-red-500 hover:text-red-700">
+                Clear Deadline
+              </button>
+              <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                Save Deadline
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Supervisor Title Submission Deadline -->
+        <div class="border rounded-lg p-6">
+          <h3 class="text-lg font-semibold mb-4 text-green-700">Supervisor Titles</h3>
+          <form id="title-submission-deadline-form">
+            <div class="mb-4">
+              <label class="block text-sm font-medium mb-2">Title Submission Deadline</label>
+              <input type="datetime-local" id="title-submission-deadline" 
+                     class="w-full border rounded px-3 py-2" 
+                     value="${titleSubmissionDeadline}">
+              <p class="text-sm text-gray-500 mt-1">
+                Supervisors cannot add/edit titles after this deadline.
+              </p>
+            </div>
+            <div class="flex justify-between">
+              <button type="button" id="clear-title-deadline" class="text-red-500 hover:text-red-700">
+                Clear Deadline
+              </button>
+              <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                Save Deadline
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Allocation Status -->
+      <div class="border rounded-lg p-6 mt-6">
+        <h3 class="text-lg font-semibold mb-4">Allocation Status</h3>
+        <div class="mb-4">
+          <p class="text-sm text-gray-600 mb-2">Current Status: 
+            <span class="font-semibold ${allocationStatus === 'completed' ? 'text-green-600' : 'text-yellow-600'}">
+              ${allocationStatus.toUpperCase()}
+            </span>
+          </p>
+          <p class="text-xs text-gray-500">
+            When allocation is completed, students can only view their allocation and cannot edit preferences.
+          </p>
+        </div>
+        <div class="flex space-x-2">
+          <button id="mark-allocation-completed" 
+                  class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 ${allocationStatus === 'completed' ? 'opacity-50 cursor-not-allowed' : ''}"
+                  ${allocationStatus === 'completed' ? 'disabled' : ''}>
+            Mark Allocation Completed
+          </button>
+          <button id="mark-allocation-pending" 
+                  class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 ${allocationStatus === 'not completed' ? 'opacity-50 cursor-not-allowed' : ''}"
+                  ${allocationStatus === 'not completed' ? 'disabled' : ''}>
+            Mark Allocation Pending
+          </button>
+        </div>
+      </div>
+
+      <!-- Current Status Display -->
+      <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h4 class="font-semibold mb-2">Current System Status:</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="font-medium">Student Preference Editing:</span>
+            <span class="ml-2 ${response.preferenceDeadline && new Date() > new Date(response.preferenceDeadline) ? 'text-red-600' : 'text-green-600'}">
+              ${response.preferenceDeadline && new Date() > new Date(response.preferenceDeadline) ? 'DISABLED (Deadline passed)' : 'ENABLED'}
+            </span>
+          </div>
+          <div>
+            <span class="font-medium">Supervisor Title Editing:</span>
+            <span class="ml-2 ${response.titleSubmissionDeadline && new Date() > new Date(response.titleSubmissionDeadline) ? 'text-red-600' : 'text-green-600'}">
+              ${response.titleSubmissionDeadline && new Date() > new Date(response.titleSubmissionDeadline) ? 'DISABLED (Deadline passed)' : 'ENABLED'}
+            </span>
+          </div>
+          <div>
+            <span class="font-medium">Allocation View:</span>
+            <span class="ml-2 ${response.allocationCompleted ? 'text-green-600' : 'text-yellow-600'}">
+              ${response.allocationCompleted ? 'ACTIVE' : 'INACTIVE'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
 
             $('#admin-content').html(html);
-            this.attachSystemSettingsEvents();
+            this.attachEnhancedSystemSettingsEvents();
         } catch (error) {
             console.error('Error loading system settings:', error);
             $('#admin-content').html('<div class="text-red-500">Error loading system settings</div>');
+        }
+    }
+
+    // Add this method to handle the enhanced system settings events
+    attachEnhancedSystemSettingsEvents() {
+        // Save preference deadline
+        $('#preference-deadline-form').on('submit', (e) => this.handleSavePreferenceDeadline(e));
+
+        // Save title submission deadline
+        $('#title-submission-deadline-form').on('submit', (e) => this.handleSaveTitleSubmissionDeadline(e));
+
+        // Clear deadlines
+        $('#clear-preference-deadline').on('click', () => this.handleClearPreferenceDeadline());
+        $('#clear-title-deadline').on('click', () => this.handleClearTitleSubmissionDeadline());
+
+        // Allocation status buttons
+        $('#mark-allocation-completed').on('click', () => this.handleSetAllocationStatus(true));
+        $('#mark-allocation-pending').on('click', () => this.handleSetAllocationStatus(false));
+    }
+
+    // Add these new methods for handling title submission deadline
+    async handleSaveTitleSubmissionDeadline(e) {
+        e.preventDefault();
+
+        const deadline = $('#title-submission-deadline').val();
+
+        if (!deadline) {
+            await SweetAlert.error('Please select a deadline date and time');
+            return;
+        }
+
+        try {
+            await $.ajax({
+                url: '/api/system-settings/title-submission-deadline',
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                contentType: 'application/json',
+                data: JSON.stringify({ deadline })
+            });
+
+            await SweetAlert.success('Title submission deadline saved successfully!');
+            this.loadSystemSettings();
+        } catch (error) {
+            await SweetAlert.error('Error saving title submission deadline: ' + (error.responseJSON?.message || 'Unknown error'));
+        }
+    }
+
+    async handleClearTitleSubmissionDeadline() {
+        const result = await SweetAlert.confirm(
+            'Clear Title Submission Deadline?',
+            'This will remove the title submission deadline and allow supervisors to edit titles at any time.'
+        );
+
+        if (!result.isConfirmed) return;
+
+        try {
+            await $.ajax({
+                url: '/api/system-settings/title-submission-deadline',
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                contentType: 'application/json',
+                data: JSON.stringify({ deadline: null })
+            });
+
+            await SweetAlert.success('Title submission deadline cleared successfully!');
+            this.loadSystemSettings();
+        } catch (error) {
+            await SweetAlert.error('Error clearing title submission deadline: ' + (error.responseJSON?.message || 'Unknown error'));
         }
     }
 
@@ -2378,21 +2479,21 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
     }
 
     async ensureSupervisorsLoaded() {
-    if (!this.supervisors || this.supervisors.length === 0) {
-        try {
-            this.supervisors = await $.ajax({
-                url: '/api/users/supervisors',
-                method: 'GET',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            });
-            window.adminDashboardSupervisors = this.supervisors;
-        } catch (error) {
-            console.error('Error loading supervisors:', error);
-            throw new Error('Failed to load supervisors');
+        if (!this.supervisors || this.supervisors.length === 0) {
+            try {
+                this.supervisors = await $.ajax({
+                    url: '/api/users/supervisors',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                });
+                window.adminDashboardSupervisors = this.supervisors;
+            } catch (error) {
+                console.error('Error loading supervisors:', error);
+                throw new Error('Failed to load supervisors');
+            }
         }
+        return this.supervisors;
     }
-    return this.supervisors;
-}
 
     renderStudentChoicesWithSearch(students) {
         const studentsWithCustomTitles = students.filter(s => s.customTitle).length;
@@ -3065,10 +3166,10 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
 
     async showApproveCustomTitleModal(studentId, studentName, title, preferredSupervisor) {
         try {
-            
+
             // FIX: Load supervisors if not available
             let supervisors = this.supervisors || window.adminDashboardSupervisors;
-            
+
 
             if (!supervisors || supervisors.length === 0) {
                 console.log('Loading supervisors for modal...');

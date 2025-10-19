@@ -124,9 +124,9 @@ class APICache {
             preloadUrls.push('/api/titles');
             preloadUrls.push('/api/preferences');
         } else if (user.role === 'admin') {
-            preloadUrls.push('/api/titles');
+            // preloadUrls.push('/api/titles');
             preloadUrls.push('/api/users');
-            preloadUrls.push('/api/custom-titles');
+            // preloadUrls.push('/api/custom-titles');
         }
 
         // Preload in background

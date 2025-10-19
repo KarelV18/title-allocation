@@ -13,6 +13,7 @@ class SupervisorDashboard {
         $(document).on('submit', '#add-title-form', (e) => this.handleAddTitle(e));
         $(document).on('click', '#bulk-add-titles-btn', () => this.showBulkAddTitlesModal());
         $(document).on('click', '.delete-title', (e) => this.deleteTitle(e));
+        $(document).on('click', '.edit-title', (e) => this.editTitle(e));
         $(document).on('click', '#view-students-btn', () => this.loadStudentAllocations());
         $(document).on('click', '#view-titles-btn', () => this.loadMyTitles());
     }
@@ -42,81 +43,120 @@ class SupervisorDashboard {
 
     async loadMyTitles() {
         try {
+            const canEdit = await this.checkTitleEditPermissions();
+
             const response = await $.ajax({
                 url: '/api/titles',
                 method: 'GET',
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
             });
 
-            let html = `
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold">My Proposed Titles</h2>
-            <div class="space-x-2">
-                <button id="add-title-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                    Add Single Title
-                </button>
-                <button id="bulk-add-titles-btn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-                    Bulk Add Titles
-                </button>
-            </div>
-        </div>
-        <div class="overflow-x-auto">
-`;
 
-            if (response.length === 0) {
+            let html = `
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">My Titles</h2>
+                        ${canEdit ? `
+                            <div class="flex space-x-2">
+                                <button id="add-title-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                    Add Single Title
+                                </button>
+                                <button id="bulk-add-titles-btn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                                    Bulk Add Titles
+                                </button>
+                            </div>
+                        ` : `
+                            <div class="text-sm text-red-600 font-semibold">
+                                Title submission deadline has passed
+                            </div>
+                        `}
+                    </div>`;
+
+            if (!canEdit) {
                 html += `
-                    <div class="text-center py-8 text-gray-500">
-                        <p>You haven't proposed any titles yet.</p>
-                        <p class="mt-2">Click "Add New Title" to get started.</p>
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                        <p class="text-yellow-800">The deadline for submitting and editing titles has passed. You can only view your titles.</p>
                     </div>
                 `;
-            } else {
-                html += `
+            }
+
+            html += `
+                <div class="overflow-x-auto">
                     <table class="min-w-full table-auto">
                         <thead>
                             <tr class="bg-gray-50">
                                 <th class="px-4 py-2 text-left">Title</th>
                                 <th class="px-4 py-2 text-left">Description</th>
                                 <th class="px-4 py-2 text-left">Status</th>
-                                <th class="px-4 py-2 text-left">Actions</th>
+                                ${canEdit ? '<th class="px-4 py-2 text-left">Actions</th>' : ''}
                             </tr>
                         </thead>
-                        <tbody>
-                `;
+                        <tbody>`;
 
+            if (response.length === 0) {
+                html += `
+                    <tr>
+                        <td colspan="${canEdit ? '4' : '3'}" class="px-4 py-8 text-center text-gray-500">
+                            No titles found. ${canEdit ? 'Add your first title using the buttons above.' : ''}
+                        </td>
+                    </tr>
+                `;
+            } else {
                 response.forEach(title => {
+                    const canEditThisTitle = canEdit && title.status !== 'approved';
+
                     html += `
-                        <tr class="border-t">
-                            <td class="px-4 py-2">${title.title}</td>
-                            <td class="px-4 py-2">${title.description}</td>
-                            <td class="px-4 py-2">
-                                <span class="px-2 py-1 rounded text-xs font-semibold ${title.status === 'approved' ? 'bg-green-100 text-green-800' :
+        <tr class="border-t">
+            <td class="px-4 py-2">${title.title}</td>
+            <td class="px-4 py-2">${title.description}</td>
+            <td class="px-4 py-2">
+                <span class="px-2 py-1 rounded text-xs font-semibold ${title.status === 'approved' ? 'bg-green-100 text-green-800' :
                             title.status === 'rejected' ? 'bg-red-100 text-red-800' :
                                 'bg-yellow-100 text-yellow-800'
                         }">
-                                    ${title.status}
-                                </span>
-                            </td>
-                            <td class="px-4 py-2">
-                                <button class="delete-title bg-red-500 text-white px-3 py-1 rounded text-sm" data-id="${title._id}">
-                                    Delete
-                                </button>
-                            </td>
-                        </tr>
-                    `;
+                    ${title.status}
+                </span>
+            </td>
+            ${canEdit ? `
+                <td class="px-4 py-2 space-x-2">
+                    ${canEditThisTitle ? `
+                        <button class="edit-title bg-blue-500 text-white px-3 py-1 rounded text-sm" 
+                                data-id="${title._id}" 
+                                data-title="${title.title}" 
+                                data-description="${title.description}">
+                            Edit
+                        </button>
+                    ` : `
+                        <button class="bg-gray-300 text-gray-500 px-3 py-1 rounded text-sm cursor-not-allowed" disabled>
+                            Edit
+                        </button>
+                    `}
+                    <button class="delete-title bg-red-500 text-white px-3 py-1 rounded text-sm" 
+                            data-id="${title._id}">
+                        Delete
+                    </button>
+                </td>
+            ` : ''}
+        </tr>`;
                 });
 
-                html += `</tbody></table>`;
             }
 
-            html += `</div></div>`;
+            html += `</tbody></table></div></div>`;
             $('#supervisor-content').html(html);
+
         } catch (error) {
             console.error('Error loading titles:', error);
-            $('#supervisor-content').html('<div class="text-red-500">Error loading titles</div>');
+            $('#supervisor-content').html(`
+                <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <h3 class="text-red-800 font-semibold mb-2">Error Loading Titles</h3>
+                    <p class="text-red-600">${error.responseJSON?.message || 'Unable to load titles. Please try again.'}</p>
+                </div>
+            `);
         }
     }
+
+
 
     showAddTitleModal() {
         const modalHtml = `
@@ -372,7 +412,7 @@ Cybersecurity Fundamentals"></textarea>
         previewSection.removeClass('hidden');
         $('#titles-count').text(`Titles detected: ${titles.length}`);
     }
-async testServerHealth() {
+    async testServerHealth() {
         try {
             const startTime = Date.now();
             const response = await $.ajax({
@@ -537,265 +577,22 @@ async testServerHealth() {
             return false;
         }
     }
-    // Update the server health check to use Swal consistently
-/*
-    async testServerHealth() {
+
+    // Check if supervisor can edit titles
+    async checkTitleEditPermissions() {
         try {
-            const startTime = Date.now();
             const response = await $.ajax({
-                url: '/api/titles',
+                url: '/api/system-settings/can-edit-titles',
                 method: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + localStorage.getItem('token')
-                },
-                timeout: 10000
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
             });
-            const endTime = Date.now();
-            const responseTime = endTime - startTime;
 
-            console.log(`Server health check: ${responseTime}ms response time`);
-            return { healthy: true, responseTime };
+            return response.canEdit;
         } catch (error) {
-            console.error('Server health check failed:', error);
-            return { healthy: false, error: error.message };
-        }
-    }
-
-    async handleBulkTitlesSubmit() {
-        console.log('Bulk titles submit started');
-
-        const isCSVMode = !$('#csv-upload-section').hasClass('hidden');
-        let titles = [];
-
-        try {
-            if (isCSVMode) {
-                console.log('CSV mode detected');
-                const file = $('#csv-file')[0].files[0];
-                if (!file) {
-                    await Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'Please select a CSV file to upload.'
-                    });
-                    return;
-                }
-
-                try {
-                    titles = await this.parseCSVFile(file);
-                    console.log(`Parsed ${titles.length} titles from CSV`);
-                } catch (error) {
-                    console.error('CSV parsing error:', error);
-                    await Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'Error reading CSV file: ' + error.message
-                    });
-                    return;
-                }
-            } else {
-                console.log('Text mode detected');
-                titles = this.extractTitlesFromInput();
-                console.log(`Extracted ${titles.length} titles from text`);
-            }
-
-            if (titles.length === 0) {
-                await Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'No titles found to add. Please enter some titles or upload a CSV file.'
-                });
-                return;
-            }
-
-            const result = await Swal.fire({
-                title: 'Add Multiple Titles?',
-                text: `Are you sure you want to add ${titles.length} titles? This may take a few moments.`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Yes, add them!',
-                cancelButtonText: 'Cancel'
-            });
-
-            // Add this right after the confirmation dialog, before starting the bulk addition:
-            console.log('Checking server health...');
-            const health = await this.testServerHealth();
-            if (!health.healthy) {
-                await Swal.fire({
-                    icon: 'error',
-                    title: 'Server Error',
-                    text: 'Server is not responding properly. Please try again later.'
-                });
-                return;
-            }
-
-            console.log(`Server response time: ${health.responseTime}ms`);
-            if (health.responseTime > 5000) {
-                await Swal.fire({
-                    icon: 'warning',
-                    title: 'Slow Server',
-                    text: 'Server is responding slowly. Bulk title addition may take longer than expected.'
-                });
-            }
-
-            if (!result.isConfirmed) {
-                console.log('User cancelled bulk title addition');
-                return;
-            }
-
-            console.log(`Starting to add ${titles.length} titles`);
-
-            // Show loading alert using Swal (not SweetAlert)
-            Swal.fire({
-                title: `Adding ${titles.length} Titles`,
-                html: 'Starting the process...',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-
-            let successCount = 0;
-            let errorCount = 0;
-            const errors = [];
-
-            console.log('Starting sequential title addition...');
-
-            // Process titles one by one
-            for (let i = 0; i < titles.length; i++) {
-                const titleData = titles[i];
-                const currentIndex = i + 1;
-                const totalTitles = titles.length;
-
-                console.log(`Processing title ${currentIndex}/${totalTitles}: "${titleData.title}"`);
-
-                // Update progress in the alert
-                Swal.update({
-                    html: `Adding ${totalTitles} Titles<br>
-                       <div style="margin-top: 10px; font-size: 14px;">
-                       Progress: ${currentIndex}/${totalTitles}<br>
-                       Current: "${titleData.title.substring(0, 30)}${titleData.title.length > 30 ? '...' : ''}"<br>
-                       Success: ${successCount}, Errors: ${errorCount}
-                       </div>`
-                });
-
-                try {
-                    console.log(`Making API call for title: "${titleData.title}"`);
-
-                    const response = await $.ajax({
-                        url: '/api/titles',
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Bearer ' + localStorage.getItem('token'),
-                            'Content-Type': 'application/json'
-                        },
-                        data: JSON.stringify({
-                            title: titleData.title,
-                            description: titleData.description
-                        }),
-                        timeout: 30000
-                    });
-
-                    console.log(`✅ Successfully added: "${titleData.title}"`, response);
-                    successCount++;
-
-                } catch (error) {
-                    console.error(`❌ Failed to add: "${titleData.title}"`, error);
-                    errorCount++;
-
-                    let errorMessage = 'Unknown error';
-                    if (error.responseJSON && error.responseJSON.message) {
-                        errorMessage = error.responseJSON.message;
-                    } else if (error.statusText) {
-                        errorMessage = error.statusText;
-                    } else if (error.status === 0) {
-                        errorMessage = 'Network error';
-                    }
-
-                    errors.push(`"${titleData.title}": ${errorMessage}`);
-
-                    // Continue with next title even if this one fails
-                    continue;
-                }
-
-                // Small delay between requests
-                if (i < titles.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                }
-            }
-
-            console.log(`✅ Completed: ${successCount} success, ${errorCount} errors`);
-
-            // Close the loading alert
-            Swal.close();
-
-            // Show results
-            if (errorCount === 0) {
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: `Successfully added all ${successCount} titles!`
-                });
-            } else if (successCount > 0) {
-                await Swal.fire({
-                    icon: 'warning',
-                    title: 'Partial Success',
-                    html: `Added ${successCount} titles successfully.<br>
-                       ${errorCount} titles failed to add.`
-                });
-            } else {
-                await Swal.fire({
-                    icon: 'error',
-                    title: 'All Titles Failed',
-                    html: `Failed to add all ${titles.length} titles.`
-                });
-            }
-
-            $('#bulk-add-titles-modal').remove();
-            this.loadMyTitles();
-
-        } catch (outerError) {
-            console.error('❌ Outer error in bulk title submission:', outerError);
-
-            // Ensure loading alert is closed
-            Swal.close();
-
-            await Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                html: 'Unexpected error during bulk title addition.<br>Please try again.'
-            });
-        }
-    }
-
-    async checkSupervisorPrivileges() {
-        try {
-            const user = JSON.parse(localStorage.getItem('user'));
-            console.log('Current user:', user);
-
-            if (!user || user.role !== 'supervisor') {
-                console.error('User does not have supervisor role:', user?.role);
-                return false;
-            }
-
-            // Test if we can access the titles endpoint
-            const response = await $.ajax({
-                url: '/api/titles',
-                method: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + localStorage.getItem('token')
-                },
-                timeout: 10000
-            });
-
-            console.log('Supervisor privileges confirmed, can access titles endpoint');
-            return true;
-
-        } catch (error) {
-            console.error('Supervisor privilege check failed:', error);
+            console.error('Error checking edit permissions:', error);
             return false;
         }
     }
-    */
 
     parseCSVFile(file) {
         return new Promise((resolve, reject) => {
@@ -872,6 +669,11 @@ async testServerHealth() {
                 })
             });
 
+            // Clear cache to ensure fresh data
+            if (window.cacheManager) {
+                window.cacheManager.clear('/api/titles');
+            }
+
             $('#add-title-modal').remove();
             this.loadMyTitles();
             this.showSuccess('Title added successfully! It will be reviewed by admin.');
@@ -916,6 +718,81 @@ async testServerHealth() {
             // alert('Error deleting title: ' + (error.responseJSON?.message || 'Unknown error'));
         }
     }
+
+    // Edit title functionality
+    editTitle(e) {
+        const titleId = $(e.target).data('id');
+        const currentTitle = $(e.target).data('title');
+        const currentDescription = $(e.target).data('description');
+
+        const modalHtml = `
+    <div id="edit-title-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 w-96">
+        <h3 class="text-xl font-bold mb-4">Edit Title</h3>
+        <form id="edit-title-form">
+          <input type="hidden" id="edit-title-id" value="${titleId}">
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">Title</label>
+            <input type="text" id="edit-title-input" value="${currentTitle}" class="w-full border rounded px-3 py-2" required>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">Description</label>
+            <textarea id="edit-description-input" class="w-full border rounded px-3 py-2" rows="3" required>${currentDescription}</textarea>
+          </div>
+          <div class="flex justify-end space-x-2">
+            <button type="button" id="cancel-edit-title" class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
+            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Update Title</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+
+        $('body').append(modalHtml);
+
+        $('#cancel-edit-title').on('click', () => {
+            $('#edit-title-modal').remove();
+        });
+
+        $('#edit-title-form').on('submit', (e) => this.handleEditTitle(e));
+    }
+
+    // Handle title edit submission
+    async handleEditTitle(e) {
+        e.preventDefault();
+
+        const titleId = $('#edit-title-id').val();
+        const title = $('#edit-title-input').val();
+        const description = $('#edit-description-input').val();
+
+        if (!title.trim() || !description.trim()) {
+            await SweetAlert.error('Error', 'Please fill in all fields', 'error');
+            return;
+        }
+
+        try {
+            await $.ajax({
+                url: `/api/titles/${titleId}`,
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                contentType: 'application/json',
+                data: JSON.stringify({ title, description })
+            });
+
+            // Clear cache to ensure fresh data - use clearAll() instead of clear()
+            if (window.cacheManager) {
+                window.cacheManager.clearAll();
+            }
+
+            $('#edit-title-modal').remove();
+            await this.loadMyTitles();
+            await SweetAlert.success('Success', 'Title updated successfully!', 'success');
+        } catch (error) {
+            console.error('Edit title error details:', error);
+
+            await SweetAlert.error('Error', 'Error updating title: ' + (error.responseJSON?.message || 'Unknown error'), 'error');
+        }
+    }
+
 
     async loadStudentAllocations() {
         try {

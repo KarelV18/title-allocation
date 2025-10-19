@@ -25,7 +25,7 @@ router.get('/', auth, async (req, res) => {
 router.post('/', auth, authorize('supervisor', 'admin'), async (req, res) => {
   try {
     const { title, description } = req.body;
-    
+
     const titleData = {
       title,
       description,
@@ -58,38 +58,56 @@ router.patch('/:id/status', auth, authorize('admin'), async (req, res) => {
 });
 
 // Update title (Admin only)
-router.put('/:id', auth, authorize('admin'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { title, description } = req.body;
-
-        // Check if title exists
-        const existingTitle = await Title.findById(id);
-        if (!existingTitle) {
-            return res.status(404).json({ message: 'Title not found' });
-        }
-
-        await Title.update(id, { title, description });
-        
-        // Return the updated title
-        const updatedTitle = await Title.findById(id);
-        res.json({ 
-            message: 'Title updated successfully',
-            title: updatedTitle 
-        });
-    } catch (error) {
-        console.error('Error updating title:', error);
-        res.status(500).json({ message: 'Error updating title' });
-    }
-});
-
-// Delete title (Admin only)
-router.delete('/:id', auth, authorize('admin'), async (req, res) => {
+router.put('/:id', auth, authorize('supervisor', 'admin'), async (req, res) => {
   try {
     const { id } = req.params;
+    const { title, description } = req.body;
+
+    // Check if title exists
+    const existingTitle = await Title.findById(id);
+    if (!existingTitle) {
+      return res.status(404).json({ message: 'Title not found' });
+    }
+
+    // If user is supervisor, check if they own the title
+    if (req.user.role === 'supervisor' && existingTitle.supervisorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You can only edit your own titles' });
+    }
+
+    await Title.update(id, { title, description });
+
+    // Return the updated title
+    const updatedTitle = await Title.findById(id);
+    res.json({
+      message: 'Title updated successfully',
+      title: updatedTitle
+    });
+  } catch (error) {
+    console.error('Error updating title:', error);
+    res.status(500).json({ message: 'Error updating title' });
+  }
+});
+
+// Delete title (Admin & Supervisor only)
+router.delete('/:id', auth, authorize('supervisor', 'admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if title exists and belongs to supervisor (if user is supervisor)
+    const title = await Title.findById(id);
+    if (!title) {
+      return res.status(404).json({ message: 'Title not found' });
+    }
+
+    // If user is supervisor (not admin), check if they own this title
+    if (req.user.role === 'supervisor' && title.supervisorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You can only delete your own titles' });
+    }
+
     await Title.delete(id);
     res.json({ message: 'Title deleted successfully' });
   } catch (error) {
+    console.error('Error deleting title:', error);
     res.status(500).json({ message: 'Error deleting title' });
   }
 });

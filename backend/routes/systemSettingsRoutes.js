@@ -58,6 +58,35 @@ router.get('/can-edit-preferences', auth, async (req, res) => {
     }
 });
 
+// Update title submission deadline (Admin only)
+router.post('/title-submission-deadline', auth, authorize('admin'), async (req, res) => {
+    try {
+        const { deadline } = req.body;
+        await SystemSettings.updateTitleSubmissionDeadline(deadline);
+        res.json({ message: 'Title submission deadline updated successfully' });
+    } catch (error) {
+        console.error('Error updating title submission deadline:', error);
+        res.status(500).json({ message: 'Error updating title submission deadline' });
+    }
+});
+
+// Check if supervisor can edit titles
+router.get('/can-edit-titles', auth, authorize('supervisor'), async (req, res) => {
+    try {
+        const canEdit = await SystemSettings.isBeforeTitleSubmissionDeadline();
+
+        res.json({
+            canEdit,
+            message: canEdit ?
+                'You can edit your titles' :
+                'The deadline for editing titles has passed'
+        });
+    } catch (error) {
+        console.error('Error checking edit permissions:', error);
+        res.status(500).json({ message: 'Error checking permissions' });
+    }
+});
+
 router.get('/allocation-status', auth, async (req, res) => {
     try {
         const settings = await SystemSettings.getSettings();
