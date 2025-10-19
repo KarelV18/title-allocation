@@ -89,7 +89,7 @@ class StudentDashboard {
                     const cardClass = allocation.isCustomTitle ?
                         'bg-green-50 border border-green-200' : 'bg-green-50 border border-green-200';
                     const iconColor = 'text-green-600';
-                    const statusText = allocation.isCustomTitle ? 'Custom Title Allocated' : 'Title Allocated';
+                    const statusText = allocation.isCustomTitle ? 'Proposed Title Allocated' : 'Title Allocated';
 
                     html += `
                 <div class="${cardClass} p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="view-allocation-card">
