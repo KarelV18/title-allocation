@@ -1,55 +1,56 @@
 # 🎓 Title Allocation System
 
-A comprehensive **web-based system** designed to manage student project title allocations, supervisor assignments, custom title proposals, and second marker assignments in academic institutions. The system supports role-based access (Admin, Supervisor, Student), enforces deadlines, and uses the Gale–Shapley algorithm for stable matching with supervisor capacity constraints.
+A comprehensive **web-based system** designed to manage student project title allocations, supervisor assignments, custom/proposed title proposals, and second marker assignments. The system supports role-based access (Admin, Supervisor, Student), enforces deadlines, and uses a custom algorithm inspired from Gale–Shapley algorithm for stable matching with supervisor capacity constraints.
 
 ---
 
 ## 🚀 Features
 
-### 🔐 Authentication & Roles
-- JWT-based login system
-- Role-based dashboards for Admin, Supervisor, and Student
+### 🧠 Core Allocation Logic
+- **Comprehensive Allocation Algorithm**:
+  - Handles regular preferences using an enhanced Gale-Shapley algorithm.
+  - Supports custom titles with supervisor approval and capacity checks.
+  - Automatically allocates students without preferences.
+  - Ensures no supervisor is over capacity.
+  - Generates detailed allocation statistics.
+
+### 🧑‍🏫 Supervisor & Title Management
+- Supervisors can:
+  - Submit, edit, and delete titles.
+  - View allocation results.
+  - Manage capacity constraints.
 
 ### 🎓 Student Preferences
-- Submit 5 ranked title preferences
-- Propose custom titles with supervisor
-- Deadline enforcement for submissions
+- Students can:
+  - Submit exactly 5 ranked preferences.
+  - Propose custom titles with supervisor details.
+  - View allocation results once published.
 
-### 📊 Allocation Engine
-- Gale–Shapley algorithm with supervisor capacity constraints
-- Handles unmatched students and custom title approvals
-- Allocation statistics and preference distribution
+### 🛡️ Admin Controls
+- Run allocation process with validation.
+- Approve/reject custom titles.
+- Resolve capacity conflicts.
+- Publish/unpublish allocations.
+- Assign supervisors manually or auto-assign.
+- Generate Excel reports with VIVA plans and statistics.
 
-### 👨‍🏫 Supervisor Assignment
-- Manual and auto-assignment of supervisors
-- Real-time capacity tracking
-- Conflict resolution for over-capacity supervisors
+### 📊 Reporting
+- Excel export includes:
+  - Allocation summary.
+  - Supervisor capacity utilization.
+  - Second marker assignments.
 
-### 🧑‍🏫 Second Marker Assignment
-- Balanced workload distribution
-- Avoids self-marking
-- Supervisor pairing statistics
+### 🔐 Authentication & Roles
+- JWT-based login system.
+- Role-based access control for students, supervisors, and admins.
 
-### 📢 Notifications
-- Allocation alerts for students
-- Mark notifications as read
-- Bulk notification clearing
-
-### 📈 Reporting
-- Excel export with:
-  - Allocation summary
-  - Supervisor capacity
-  - VIVA plan
-  - Second marker statistics
-
-### 🛠 Admin Dashboard
-- Manage titles, users, preferences, custom titles
-- Resolve capacity conflicts
-- Set system deadlines and allocation status
+### 🔔 Notifications
+- Students receive allocation notifications.
+- Mark notifications as read individually or in bulk.
 
 ---
 
-## 🧰 Tech Stack
+## 🧱 Tech Stack
 
 | Layer | Technologies |
 |--------|----------------|
@@ -60,60 +61,50 @@ A comprehensive **web-based system** designed to manage student project title al
 
 ---
 
-## 📁 Project Structure
+## 📂 Folder Structure
 
 ```
-├── backend/
-│   ├── config/
-│   ├── controllers/
-│   ├── middleware/
-│   ├── models/
-│   ├── routes/
-│   └── server.js
-├── frontend/
-│   ├── css/
-│   ├── js/
-│   ├── favicon/
-│   └── index.html
-├── users_template.csv
-├── .gitignore
-├── package.json
-└── README.md
+backend/
+  ├── controllers/
+  ├── models/
+  ├── routes/
+  ├── middleware/
+  ├── config/
+frontend/
+  ├── css/
+  ├── js/
+  └── index.html
 ```
 
 ---
 
-## ⚙️ Setup Instructions
+## 🛠️ Setup Instructions
 
-1. **Clone the repository**
+1. Clone the repo:
    ```bash
-   git clone https://github.com/your-username/title-allocation.git
+   git clone https://github.com/mrinalsharma14/title-allocation.git
    cd title-allocation
    ```
 
-2. **Install dependencies**
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-3. **Configure environment variables**
-   Create a `.env` file in the root with:
-   ```env
+3. Set up environment variables in `.env`:
+   ```
    PORT=5000
-   MONGODB_URI=mongodb://localhost:27017
-   DB_NAME=title_allocation
+   MONGODB_URI=your_mongo_uri
    JWT_SECRET=your_jwt_secret
+   DB_NAME=title_allocation
    JWT_EXPIRES_IN=24h
    CLIENT_URL=http://localhost:5000
    ```
 
-4. **Start the server**
+4. Start the server:
    ```bash
    nodemon
    ```
-
-5. **Access the app**
-   Open http://localhost:5000 in your browser.
 
 ---
 
@@ -122,11 +113,10 @@ A comprehensive **web-based system** designed to manage student project title al
 Use `users_template.csv` to bulk upload students and supervisors. Ensure:
 - Supervisor capacity matches total student count.
 - Roles: `student`, `supervisor`, `admin`
-- Email format: university domain
 
 ---
 
-## 📌 Allocation Workflow
+## ⚙️ Allocation Workflow
 
 1. Students submit preferences and custom titles.
 2. Admin reviews and approves custom titles.
@@ -134,3 +124,11 @@ Use `users_template.csv` to bulk upload students and supervisors. Ensure:
 4. System assigns titles using Gale–Shapley.
 5. Supervisor and second marker assignments are made.
 6. Reports are generated and notifications sent.
+
+---
+
+## 📌 Notes
+
+- Allocation only runs if total supervisor capacity matches student count.  
+- Custom titles require admin approval and supervisor capacity validation.  
+- Second markers are assigned to balance workload and minimize new pairings.
