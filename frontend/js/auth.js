@@ -97,6 +97,10 @@ class Auth {
             <h3 class="text-lg font-semibold mb-2">Title Management</h3>
             <p class="text-gray-600 text-sm">Manage and approve supervisor titles</p>
         </div>
+        <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="allocation-management-card">
+            <h3 class="text-lg font-semibold mb-2">Publish Allocation</h3>
+            <p class="text-gray-600 text-sm">Publish or Unpublish the title/supervisor allocation</p>
+        </div>
         <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="manage-users-card">
             <h3 class="text-lg font-semibold mb-2">User Management</h3>
             <p class="text-gray-600 text-sm">Manage users and bulk upload</p>

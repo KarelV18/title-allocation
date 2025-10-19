@@ -36,6 +36,11 @@ class AdminDashboard {
 
         // Supervisor Assignment
         $(document).on('click', '#supervisor-assignment-card', () => this.loadSupervisorAssignment());
+
+        // Publish / Unpublish
+        $(document).on('click', '#allocation-management-card', () => this.loadAllocationManagement());
+        $(document).on('click', '#publish-allocations-btn', () => this.publishAllocations());
+        $(document).on('click', '#unpublish-allocations-btn', () => this.unpublishAllocations());
     }
 
     async loadTitleManagement() {
@@ -608,6 +613,206 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
             await SweetAlert.error('Error creating user: ' + (error.responseJSON?.message || error.statusText));
         }
     }
+
+
+    async loadAllocationManagement() {
+        try {
+            const [allocations, settings, stats] = await Promise.all([
+                $.ajax({
+                    url: '/api/allocations',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }),
+                $.ajax({
+                    url: '/api/system-settings/allocation-status',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }),
+                $.ajax({
+                    url: '/api/allocations/stats',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                }).catch(() => null)
+            ]);
+
+            const allocationCompleted = settings.allocationCompleted;
+            const allocationPublished = settings.allocationPublished;
+
+            let html = `
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Allocation Management</h2>
+                    <div class="flex space-x-2">
+                        ${!allocationCompleted ? `
+                            <button id="run-allocation-btn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                                Run Allocation
+                            </button>
+                        ` : ''}
+                        ${allocationCompleted && !allocationPublished ? `
+                            <button id="publish-allocations-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                Publish to Students & Supervisors
+                            </button>
+                        ` : ''}
+                        ${allocationPublished ? `
+                            <button id="unpublish-allocations-btn" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">
+                                Unpublish Allocations
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <!-- Status Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gray-50 border rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold ${allocationCompleted ? 'text-green-600' : 'text-gray-400'}">
+                            ${allocationCompleted ? '✓' : '○'}
+                        </div>
+                        <div class="text-sm font-medium mt-2">Allocation Run</div>
+                        <div class="text-xs text-gray-500">Process Completed</div>
+                    </div>
+                    <div class="bg-gray-50 border rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold ${allocationPublished ? 'text-green-600' : 'text-yellow-600'}">
+                            ${allocationPublished ? '✓' : '○'}
+                        </div>
+                        <div class="text-sm font-medium mt-2">Published Status</div>
+                        <div class="text-xs text-gray-500">Visible to Users</div>
+                    </div>
+                    <div class="bg-gray-50 border rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-600">${allocations.length}</div>
+                        <div class="text-sm font-medium mt-2">Total Allocations</div>
+                        <div class="text-xs text-gray-500">Students Allocated</div>
+                    </div>
+                </div>
+
+                <!-- Action Information -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h3 class="font-semibold text-blue-800 mb-2">Allocation Workflow</h3>
+                    <div class="text-sm text-blue-700 space-y-1">
+                        ${!allocationCompleted ? `
+                            <p>1. <strong>Run Allocation</strong> - Process student preferences and create allocations (Admin only)</p>
+                            <p>2. <strong>Review Results</strong> - Check allocations and make adjustments if needed</p>
+                            <p>3. <strong>Publish</strong> - Make allocations visible to students and supervisors</p>
+                        ` : !allocationPublished ? `
+                            <p>✓ Allocation process completed</p>
+                            <p>✓ Results are ready for review</p>
+                            <p>→ <strong>Ready to publish</strong> to students and supervisors</p>
+                        ` : `
+                            <p>✓ Allocation process completed</p>
+                            <p>✓ Results published to users</p>
+                            <p>→ Students and supervisors can view their allocations</p>
+                        `}
+                    </div>
+                </div>
+        `;
+
+            // Add allocation preview table
+            if (allocationCompleted && allocations.length > 0) {
+                html += `
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold mb-4">Allocation Preview</h3>
+                    <div class="overflow-x-auto border rounded-lg">
+                        <table class="min-w-full table-auto">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supervisor</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+            `;
+
+                // Show first 10 allocations as preview
+                allocations.slice(0, 10).forEach(allocation => {
+                    html += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">
+                            <div class="font-medium">${allocation.studentName}</div>
+                            <div class="text-gray-500">${allocation.studentUsername}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-900">
+                            ${allocation.title}
+                            ${allocation.isCustomTitle ? '<span class="text-xs text-green-600">(Custom)</span>' : ''}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-900">
+                            ${allocation.supervisorName || 'Not Assigned'}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${allocation.isCustomTitle ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">
+                                ${allocation.isCustomTitle ? 'Custom' : 'Regular'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+                });
+
+                if (allocations.length > 10) {
+                    html += `
+                    <tr>
+                        <td colspan="4" class="px-4 py-3 text-center text-sm text-gray-500">
+                            ... and ${allocations.length - 10} more allocations
+                        </td>
+                    </tr>
+                `;
+                }
+
+                html += `</tbody></table></div>`;
+            }
+
+            html += `</div>`;
+            $('#admin-content').html(html);
+
+        } catch (error) {
+            console.error('Error loading allocation management:', error);
+            $('#admin-content').html('<div class="text-red-500">Error loading allocation management</div>');
+        }
+    }
+
+    async publishAllocations() {
+        const result = await SweetAlert.confirm(
+            'Publish Allocations?',
+            'This will make allocations visible to all students and supervisors. They will be able to see their assigned titles and supervisors.'
+        );
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const response = await $.ajax({
+                url: '/api/allocations/publish',
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            await SweetAlert.success(response.message);
+            this.loadAllocationManagement();
+        } catch (error) {
+            await SweetAlert.error('Error publishing allocations: ' + (error.responseJSON?.message || 'Unknown error'));
+        }
+    }
+
+    async unpublishAllocations() {
+        const result = await SweetAlert.confirm(
+            'Unpublish Allocations?',
+            'This will hide allocations from students and supervisors. They will no longer be able to see their assigned titles.'
+        );
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const response = await $.ajax({
+                url: '/api/allocations/unpublish',
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            await SweetAlert.success(response.message);
+            this.loadAllocationManagement();
+        } catch (error) {
+            await SweetAlert.error('Error unpublishing allocations: ' + (error.responseJSON?.message || 'Unknown error'));
+        }
+    }
+
 
     async loadUsersData() {
         try {
@@ -2146,6 +2351,18 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
             });
 
+            // FIX: Load and store supervisors for modal use
+            const supervisors = await $.ajax({
+                url: '/api/users/supervisors',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+
+            // Store supervisors globally
+            window.adminDashboardSupervisors = supervisors;
+            this.supervisors = supervisors;
+
+
             // Store the data for filtering
             this.allStudentChoices = response;
 
@@ -2159,6 +2376,23 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
             $('#admin-content').html('<div class="text-red-500">Error loading student choices</div>');
         }
     }
+
+    async ensureSupervisorsLoaded() {
+    if (!this.supervisors || this.supervisors.length === 0) {
+        try {
+            this.supervisors = await $.ajax({
+                url: '/api/users/supervisors',
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+            window.adminDashboardSupervisors = this.supervisors;
+        } catch (error) {
+            console.error('Error loading supervisors:', error);
+            throw new Error('Failed to load supervisors');
+        }
+    }
+    return this.supervisors;
+}
 
     renderStudentChoicesWithSearch(students) {
         const studentsWithCustomTitles = students.filter(s => s.customTitle).length;
@@ -2483,6 +2717,10 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
                 method: 'GET',
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
             });
+
+            window.adminDashboardSupervisors = supervisors;
+            this.supervisors = supervisors; // Also store in current instance
+
 
             let html = `
                 <div class="bg-white rounded-lg shadow p-6">
@@ -2825,13 +3063,31 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
         });
     }
 
-    showApproveCustomTitleModal(studentId, studentName, title, preferredSupervisor) {
-        // Build supervisor options
-        const supervisorOptions = this.supervisors.map(supervisor =>
-            `<option value="${supervisor._id}">${supervisor.name}</option>`
-        ).join('');
+    async showApproveCustomTitleModal(studentId, studentName, title, preferredSupervisor) {
+        try {
+            
+            // FIX: Load supervisors if not available
+            let supervisors = this.supervisors || window.adminDashboardSupervisors;
+            
 
-        const modalHtml = `
+            if (!supervisors || supervisors.length === 0) {
+                console.log('Loading supervisors for modal...');
+                supervisors = await $.ajax({
+                    url: '/api/users/supervisors',
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                });
+                // Store for future use
+                this.supervisors = supervisors;
+                window.adminDashboardSupervisors = supervisors;
+            }
+
+            // Build supervisor options
+            const supervisorOptions = this.supervisors.map(supervisor =>
+                `<option value="${supervisor._id}">${supervisor.name}</option>`
+            ).join('');
+
+            const modalHtml = `
             <div id="approve-custom-title-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-white rounded-lg p-6 w-96">
                     <h3 class="text-xl font-bold mb-4">Approve Custom Title</h3>
@@ -2858,14 +3114,19 @@ admin2,password123,admin,Admin User,admin2@mdx.ac.mu,
                 </div>
             </div>
         `;
-
-        $('body').append(modalHtml);
-
-        $('#cancel-approve-custom-title').on('click', () => {
             $('#approve-custom-title-modal').remove();
-        });
 
-        $('#approve-custom-title-form').on('submit', (e) => this.handleApproveCustomTitle(e));
+            $('body').append(modalHtml);
+
+            $('#cancel-approve-custom-title').on('click', () => {
+                $('#approve-custom-title-modal').remove();
+            });
+
+            $('#approve-custom-title-form').on('submit', (e) => this.handleApproveCustomTitle(e));
+        } catch (error) {
+            console.error('Error loading supervisors for modal:', error);
+            await SweetAlert.error('Error loading supervisors list. Please try again.');
+        }
     }
 
     async handleApproveCustomTitle(e) {

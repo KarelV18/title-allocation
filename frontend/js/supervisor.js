@@ -372,8 +372,173 @@ Cybersecurity Fundamentals"></textarea>
         previewSection.removeClass('hidden');
         $('#titles-count').text(`Titles detected: ${titles.length}`);
     }
+async testServerHealth() {
+        try {
+            const startTime = Date.now();
+            const response = await $.ajax({
+                url: '/api/titles',
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + localStorage.getItem('token')
+                },
+                timeout: 10000
+            });
+            const endTime = Date.now();
+            const responseTime = endTime - startTime;
 
+            return { healthy: true, responseTime };
+        } catch (error) {
+            return { healthy: false, error: error.message };
+        }
+    }
+
+    async handleBulkTitlesSubmit() {
+        const isCSVMode = !$('#csv-upload-section').hasClass('hidden');
+        let titles = [];
+
+        try {
+            if (isCSVMode) {
+                const file = $('#csv-file')[0].files[0];
+                if (!file) {
+                    await SweetAlert.error('Please select a CSV file to upload.');
+                    return;
+                }
+
+                titles = await this.parseCSVFile(file);
+            } else {
+                titles = this.extractTitlesFromInput();
+            }
+
+            if (titles.length === 0) {
+                await SweetAlert.error('No titles found to add. Please enter some titles or upload a CSV file.');
+                return;
+            }
+
+            const result = await SweetAlert.confirm(
+                'Add Multiple Titles?',
+                `Are you sure you want to add ${titles.length} titles? This may take a few moments.`
+            );
+
+            const health = await this.testServerHealth();
+            if (!health.healthy) {
+                await SweetAlert.error('Server is not responding properly. Please try again later.');
+                return;
+            }
+
+            if (health.responseTime > 5000) {
+                await SweetAlert.warning('Server is responding slowly. Bulk title addition may take longer than expected.');
+            }
+
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            // Use SweetAlert.loading for the initial loading state
+            SweetAlert.loading(`Adding ${titles.length} Titles`);
+
+            let successCount = 0;
+            let errorCount = 0;
+            const errors = [];
+
+            for (let i = 0; i < titles.length; i++) {
+                const titleData = titles[i];
+                const currentIndex = i + 1;
+                const totalTitles = titles.length;
+
+                // Update progress using Swal directly since SweetAlert doesn't have update method
+                Swal.update({
+                    html: `Adding ${totalTitles} Titles<br>
+                       <div style="margin-top: 10px; font-size: 14px;">
+                       Progress: ${currentIndex}/${totalTitles}<br>
+                       Current: "${titleData.title.substring(0, 30)}${titleData.title.length > 30 ? '...' : ''}"<br>
+                       Success: ${successCount}, Errors: ${errorCount}
+                       </div>`
+                });
+
+                try {
+                    await $.ajax({
+                        url: '/api/titles',
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + localStorage.getItem('token'),
+                            'Content-Type': 'application/json'
+                        },
+                        data: JSON.stringify({
+                            title: titleData.title,
+                            description: titleData.description
+                        }),
+                        timeout: 30000
+                    });
+
+                    successCount++;
+                } catch (error) {
+                    errorCount++;
+
+                    let errorMessage = 'Unknown error';
+                    if (error.responseJSON && error.responseJSON.message) {
+                        errorMessage = error.responseJSON.message;
+                    } else if (error.statusText) {
+                        errorMessage = error.statusText;
+                    } else if (error.status === 0) {
+                        errorMessage = 'Network error';
+                    }
+
+                    errors.push(`"${titleData.title}": ${errorMessage}`);
+                    continue;
+                }
+
+                if (i < titles.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+
+            SweetAlert.close();
+
+            if (errorCount === 0) {
+                await SweetAlert.success(`Successfully added all ${successCount} titles!`);
+            } else if (successCount > 0) {
+                await SweetAlert.warning(
+                    `Added ${successCount} titles successfully. ${errorCount} titles failed to add.`,
+                    'Partial Success'
+                );
+            } else {
+                await SweetAlert.error(`Failed to add all ${titles.length} titles.`, 'All Titles Failed');
+            }
+
+            $('#bulk-add-titles-modal').remove();
+            this.loadMyTitles();
+
+        } catch (outerError) {
+            SweetAlert.close();
+            await SweetAlert.error('Unexpected error during bulk title addition. Please try again.');
+        }
+    }
+
+    async checkSupervisorPrivileges() {
+        try {
+            const user = JSON.parse(localStorage.getItem('user'));
+
+            if (!user || user.role !== 'supervisor') {
+                return false;
+            }
+
+            await $.ajax({
+                url: '/api/titles',
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + localStorage.getItem('token')
+                },
+                timeout: 10000
+            });
+
+            return true;
+
+        } catch (error) {
+            return false;
+        }
+    }
     // Update the server health check to use Swal consistently
+/*
     async testServerHealth() {
         try {
             const startTime = Date.now();
@@ -630,6 +795,7 @@ Cybersecurity Fundamentals"></textarea>
             return false;
         }
     }
+    */
 
     parseCSVFile(file) {
         return new Promise((resolve, reject) => {

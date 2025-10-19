@@ -24,11 +24,11 @@ class SystemSettings {
     static async updatePreferenceDeadline(deadline) {
         return await this.collection().updateOne(
             {},
-            { 
-                $set: { 
+            {
+                $set: {
                     preferenceDeadline: new Date(deadline),
                     updatedAt: new Date()
-                } 
+                }
             },
             { upsert: true }
         );
@@ -37,11 +37,11 @@ class SystemSettings {
     static async setAllocationCompleted(completed) {
         return await this.collection().updateOne(
             {},
-            { 
-                $set: { 
+            {
+                $set: {
                     allocationCompleted: completed,
                     updatedAt: new Date()
-                } 
+                }
             },
             { upsert: true }
         );
@@ -58,6 +58,26 @@ class SystemSettings {
     static async isAllocationCompleted() {
         const settings = await this.getSettings();
         return settings.allocationCompleted || false;
+    }
+
+    // Add new method for allocation publishing
+    static async setAllocationPublished(published) {
+        return await this.collection().updateOne(
+            {},
+            {
+                $set: {
+                    allocationPublished: published,
+                    publishedAt: published ? new Date() : null,
+                    updatedAt: new Date()
+                }
+            },
+            { upsert: true }
+        );
+    }
+
+    static async isAllocationPublished() {
+        const settings = await this.getSettings();
+        return settings.allocationPublished || false;
     }
 }
 

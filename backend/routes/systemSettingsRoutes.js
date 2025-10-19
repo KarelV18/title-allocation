@@ -44,17 +44,31 @@ router.get('/can-edit-preferences', auth, async (req, res) => {
     try {
         const canEdit = await SystemSettings.isBeforeDeadline();
         const allocationCompleted = await SystemSettings.isAllocationCompleted();
-        
-        res.json({ 
-            canEdit, 
+
+        res.json({
+            canEdit,
             allocationCompleted,
-            message: canEdit ? 
-                'You can edit your preferences' : 
+            message: canEdit ?
+                'You can edit your preferences' :
                 'The deadline for editing preferences has passed'
         });
     } catch (error) {
         console.error('Error checking edit permissions:', error);
         res.status(500).json({ message: 'Error checking permissions' });
+    }
+});
+
+router.get('/allocation-status', auth, async (req, res) => {
+    try {
+        const settings = await SystemSettings.getSettings();
+        res.json({
+            allocationCompleted: settings.allocationCompleted || false,
+            allocationPublished: settings.allocationPublished || false,
+            publishedAt: settings.publishedAt || null
+        });
+    } catch (error) {
+        console.error('Error fetching allocation status:', error);
+        res.status(500).json({ message: 'Error fetching allocation status' });
     }
 });
 

@@ -8,8 +8,10 @@ class StudentDashboard {
         this.loadDashboard();
         this.attachEventListeners();
         this.checkAllocationStatus();
-        this.checkNotifications();
+        this.checkNotifications(); // Initial check
 
+        // Set up periodic notification checking (only relevant after publishing)
+        this.setupPeriodicNotificationCheck();
     }
 
     attachEventListeners() {
@@ -22,42 +24,41 @@ class StudentDashboard {
         $(document).on('submit', '#custom-title-form', (e) => this.handleCustomTitle(e));
     }
 
+
+    // In the StudentDashboard class, update the loadDashboard method:
     async loadDashboard() {
         try {
-
             const [settings, allocation, canEditResponse] = await Promise.all([
-                this.apiCache.call('/api/system-settings').catch(() => ({ preferenceDeadline: null, allocationCompleted: false })),
-                this.apiCache.call('/api/allocations').catch(() => null),
-                this.apiCache.call('/api/system-settings/can-edit-preferences').catch(() => ({ canEdit: true, allocationCompleted: false }))
+                this.apiCache.call('/api/system-settings').catch(() => ({
+                    preferenceDeadline: null,
+                    allocationCompleted: false,
+                    allocationPublished: false
+                })),
+                this.apiCache.call('/api/allocations', { forceRefresh: true }).catch(() => null),
+                this.apiCache.call('/api/system-settings/can-edit-preferences', { forceRefresh: true }).catch(() => ({
+                    canEdit: true,
+                    allocationCompleted: false
+                }))
             ]);
-            // const [settings, allocation, canEditResponse] = await Promise.all([
-            //     $.ajax({
-            //         url: '/api/system-settings',
-            //         method: 'GET',
-            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            //     }).catch(() => ({ preferenceDeadline: null, allocationCompleted: false })),
 
-            //     $.ajax({
-            //         url: '/api/allocations',
-            //         method: 'GET',
-            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            //     }).catch(() => null),
+            // Add null checks for the data
+            const canEditPreferences = canEditResponse?.canEdit ?? true;
+            const allocationCompleted = settings?.allocationCompleted || canEditResponse?.allocationCompleted || false;
+            const allocationPublished = settings?.allocationPublished || false;
+            const hasAllocation = allocation !== null && allocation !== undefined;
 
-            //     $.ajax({
-            //         url: '/api/system-settings/can-edit-preferences',
-            //         method: 'GET',
-            //         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            //     }).catch(() => ({ canEdit: true, allocationCompleted: false }))
-            // ]);
-
-            const canEditPreferences = canEditResponse.canEdit;
-            const allocationCompleted = settings.allocationCompleted;
-            const hasAllocation = allocation !== null;
+            console.log('Dashboard State:', {
+                allocationCompleted,
+                allocationPublished,
+                hasAllocation,
+                canEditPreferences,
+                allocationData: allocation
+            });
 
             let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">`;
 
-            // Select Preferences Card - show if deadline hasn't passed
-            if (canEditPreferences) {
+            // ✅ Before publishing: Students only see preference selection (if deadline not passed)
+            if (!allocationPublished && canEditPreferences) {
                 html += `
             <div class="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="select-preferences-card">
                 <div class="flex items-center mb-3">
@@ -81,41 +82,72 @@ class StudentDashboard {
             `;
             }
 
-            // My Allocation Card - show if allocation exists or allocation is completed
-            if (hasAllocation || allocationCompleted) {
-                const cardClass = hasAllocation ?
-                    (allocation.isCustomTitle ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200') :
-                    'bg-gray-50 border border-gray-200';
+            // ✅ After publishing: Students see their allocation results
+            if (allocationPublished) {
+                if (hasAllocation) {
+                    // Green card if allocated
+                    const cardClass = allocation.isCustomTitle ?
+                        'bg-green-50 border border-green-200' : 'bg-green-50 border border-green-200';
+                    const iconColor = 'text-green-600';
+                    const statusText = allocation.isCustomTitle ? 'Custom Title Allocated' : 'Title Allocated';
 
-                const iconColor = hasAllocation ? 'text-green-600' : 'text-gray-600';
-                const statusText = hasAllocation ?
-                    (allocation.isCustomTitle ? 'Custom Title Allocated' : 'Title Allocated') :
-                    'View Allocation Status';
-
-                html += `
-            <div class="${cardClass} p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="view-allocation-card">
-                <div class="flex items-center mb-3">
-                    <div class="w-10 h-10 ${hasAllocation ? 'bg-green-100' : 'bg-gray-100'} rounded-full flex items-center justify-center mr-3">
-                        <svg class="w-5 h-5 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
+                    html += `
+                <div class="${cardClass} p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="view-allocation-card">
+                    <div class="flex items-center mb-3">
+                        <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                            <svg class="w-5 h-5 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold">My Allocation</h3>
                     </div>
-                    <h3 class="text-lg font-semibold">My Allocation</h3>
+                    <p class="text-gray-600 text-sm mb-2">View your allocated title and supervisor</p>
+                    <p class="text-xs text-green-600 font-semibold">${statusText}</p>
                 </div>
-                <p class="text-gray-600 text-sm mb-2">${hasAllocation ? 'View your allocated title and supervisor' : 'Check your allocation status'}</p>
-                <p class="text-xs ${hasAllocation ? 'text-green-600' : 'text-gray-600'} font-semibold">${statusText}</p>
-            </div>
-            `;
+                `;
+                } else {
+                    // Gray card if not allocated
+                    html += `
+                <div class="bg-gray-50 border border-gray-200 p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow" id="view-allocation-card">
+                    <div class="flex items-center mb-3">
+                        <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mr-3">
+                            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold">Allocation Status</h3>
+                    </div>
+                    <p class="text-gray-600 text-sm mb-2">View your allocation result</p>
+                    <p class="text-xs text-gray-600 font-semibold">Allocation Completed - No Title Assigned</p>
+                </div>
+                `;
+                }
             }
 
-            // If no cards are available, show appropriate message
-            if (!canEditPreferences && !(hasAllocation || allocationCompleted)) {
+            // ✅ During allocation process: Students see "Allocation in Progress" message
+            if (allocationCompleted && !allocationPublished) {
                 html = `
             <div class="bg-white rounded-lg shadow p-6 text-center col-span-2">
                 <div class="py-8">
                     <div class="text-4xl mb-4">⏳</div>
                     <h3 class="text-xl font-semibold text-gray-700 mb-2">Allocation in Progress</h3>
-                    <p class="text-gray-600">The project allocation process is currently underway. Please check back later.</p>
+                    <p class="text-gray-600">The project allocation process is currently underway. Please check back later when results are published.</p>
+                    <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 inline-block">
+                        <p class="text-blue-700 text-sm">Your preferences have been submitted and the allocation algorithm is running.</p>
+                    </div>
+                </div>
+            </div>
+            `;
+            }
+
+            // If no cards are available and we're not in allocation process, show appropriate message
+            if (!allocationPublished && !canEditPreferences && !allocationCompleted) {
+                html = `
+            <div class="bg-white rounded-lg shadow p-6 text-center col-span-2">
+                <div class="py-8">
+                    <div class="text-4xl mb-4">⏳</div>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-2">System Setup in Progress</h3>
+                    <p class="text-gray-600">The project allocation system is being configured. Please check back later.</p>
                 </div>
             </div>
             `;
@@ -124,21 +156,29 @@ class StudentDashboard {
             html += `</div><div id="student-content" class="mt-6"></div>`;
             $('#content').html(html);
 
+
+            if (allocationPublished && !this.lastAllocationPublishedState) {
+                this.onAllocationsPublished();
+            }
+
+            // Update the state for next check
+            this.lastAllocationPublishedState = allocationPublished;
+
             // Attach event listeners conditionally
-            if (canEditPreferences) {
+            if (!allocationPublished && canEditPreferences) {
                 $('#select-preferences-card').on('click', () => this.loadTitleSelection());
             }
-            if (hasAllocation || allocationCompleted) {
+            if (allocationPublished) {
                 $('#view-allocation-card').on('click', () => this.loadMyAllocation());
             }
 
-            // Auto-load appropriate content
-            if (hasAllocation) {
+            // Auto-load appropriate content based on state
+            if (allocationPublished && hasAllocation) {
                 this.loadMyAllocation();
-            } else if (canEditPreferences) {
+            } else if (!allocationPublished && canEditPreferences) {
                 this.loadTitleSelection();
-            } else if (allocationCompleted) {
-                this.loadMyAllocation();
+            } else if (allocationPublished) {
+                this.loadMyAllocation(); // For students with no allocation but results published
             }
         } catch (error) {
             console.error('Error loading student dashboard:', error);
@@ -146,6 +186,9 @@ class StudentDashboard {
         <div class="bg-white rounded-lg shadow p-6">
             <div class="text-center py-8 text-red-500">
                 <p>Error loading dashboard. Please refresh the page.</p>
+                <button onclick="window.location.reload()" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Refresh Page
+                </button>
             </div>
         </div>
         `);
@@ -167,6 +210,29 @@ class StudentDashboard {
             // Allocation not found, that's fine
         }
     }
+
+    // Add this new method for periodic checking
+    setupPeriodicNotificationCheck() {
+        // Check every 2 minutes if allocations are published
+        this.notificationInterval = setInterval(async () => {
+            try {
+                const settings = await this.apiCache.call('/api/system-settings', { forceRefresh: true }).catch(() => ({
+                    allocationPublished: false
+                }));
+
+                if (settings.allocationPublished) {
+                    await this.checkNotifications();
+                } else {
+                    // If allocations aren't published yet, clear the interval
+                    // We'll restart it when publishing happens
+                    clearInterval(this.notificationInterval);
+                }
+            } catch (error) {
+                console.error('Error in periodic notification check:', error);
+            }
+        }, 120000); // 2 minutes
+    }
+
 
     renderTitlesBySupervisor(titles, existingPreferences) {
         // Group titles by supervisor
@@ -303,48 +369,26 @@ class StudentDashboard {
     async loadTitleSelection() {
         try {
             const canEditResponse = await this.apiCache.call('/api/system-settings/can-edit-preferences');
-            // Check if still allowed to edit
-            // const canEditResponse = await $.ajax({
-            //     url: '/api/system-settings/can-edit-preferences',
-            //     method: 'GET',
-            //     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            // });
 
             if (!canEditResponse.canEdit) {
                 await SweetAlert.error(
                     'Editing Disabled',
                     'The deadline for editing preferences has passed. You can no longer modify your preferences.'
                 );
-                this.loadDashboard(); // Go back to dashboard
+                this.loadDashboard();
                 return;
             }
 
-            const [supervisors, existingPreferences, titles, settings] = await Promise.all([
+            // FIX: Rename the settings variable to avoid conflict
+            const [supervisors, existingPreferences, titlesData, systemSettings] = await Promise.all([
                 this.loadSupervisors(),
                 this.apiCache.call('/api/preferences').catch(() => null),
-                this.apiCache.call('/api/titles'),
+                this.apiCache.call('/api/titles'), // This returns titles data
                 this.apiCache.call('/api/system-settings').catch(() => ({ preferenceDeadline: null }))
             ]);
 
-            // Continue with existing title selection loading...
-            // Load supervisors for dropdown and grouping
-            // const supervisors = await this.loadSupervisors();
-
-            // // Check if student already has preferences
-            // const existingPreferences = await $.ajax({
-            //     url: '/api/preferences',
-            //     method: 'GET',
-            //     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            // });
-
-            // // Get available titles
-            // const titles = await $.ajax({
-            //     url: '/api/titles',
-            //     method: 'GET',
-            //     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            // });
-
-            const approvedTitles = titles.filter(title => title.status === 'approved');
+            // FIX: Use titlesData instead of titles
+            const approvedTitles = titlesData.filter(title => title.status === 'approved');
 
             // Store titles for search functionality
             this.allApprovedTitles = approvedTitles;
@@ -354,122 +398,114 @@ class StudentDashboard {
                 `<option value="${supervisor.name}" data-username="${supervisor.username}">${supervisor.name}</option>`
             ).join('');
 
-
-            // Get system settings for deadline display
-            // const settings = await $.ajax({
-            //     url: '/api/system-settings',
-            //     method: 'GET',
-            //     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-            // }).catch(() => ({ preferenceDeadline: null }));
-
             let html = `
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Select Your Top 5 Title Preferences</h2>
-                    ${settings.preferenceDeadline ? `
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-                            <p class="text-blue-700 text-sm">
-                                <strong>Deadline:</strong> ${new Date(settings.preferenceDeadline).toLocaleString()}
-                            </p>
-                        </div>
-                    ` : ''}
-                </div>
-                
-                ${existingPreferences ? `
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                        <p class="text-yellow-800">You have already submitted your preferences. You can update them until the deadline.</p>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Select Your Top 5 Title Preferences</h2>
+                ${systemSettings.preferenceDeadline ? `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                        <p class="text-blue-700 text-sm">
+                            <strong>Deadline:</strong> ${new Date(systemSettings.preferenceDeadline).toLocaleString()}
+                        </p>
                     </div>
                 ` : ''}
+            </div>
+            
+            ${existingPreferences ? `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <p class="text-yellow-800">You have already submitted your preferences. You can update them until the deadline.</p>
+                </div>
+            ` : ''}
 
-                <!-- Search Bar -->
-                <div class="mb-6">
-                    <div class="relative">
-                        <input type="text" id="search-titles" 
-                               placeholder="Search titles by name..." 
-                               class="w-full border border-gray-300 rounded-lg px-4 py-3 pl-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                            </svg>
-                        </div>
-                    </div>
-                    <div id="search-results-count" class="text-sm text-gray-600 mt-2 hidden">
-                        Found <span id="matches-count">0</span> titles matching your search
+            <!-- Search Bar -->
+            <div class="mb-6">
+                <div class="relative">
+                    <input type="text" id="search-titles" 
+                           placeholder="Search titles by name..." 
+                           class="w-full border border-gray-300 rounded-lg px-4 py-3 pl-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
                     </div>
                 </div>
-
-                <div class="mb-6">
-                    <h3 class="text-lg font-semibold mb-3">Available Titles</h3>
-                    <div id="titles-accordion">
-                        <!-- Titles will be loaded here by renderTitlesBySupervisor -->
-                    </div>
-                    <div id="no-titles-message" class="text-center py-8 text-gray-500 hidden">
-                        <p>No titles found matching your search.</p>
-                        <p class="mt-2">Try different search terms or clear your search.</p>
-                    </div>
-                </div>
-
-                <!-- Rest of the existing title selection HTML remains the same -->
-                <div class="bg-gray-50 rounded-lg p-6 mb-6">
-                    <h3 class="text-lg font-semibold mb-4">Your Selected Preferences</h3>
-                    <div id="selected-preferences" class="space-y-3">
-                        ${this.renderSelectedPreferences(existingPreferences?.preferences || [])}
-                    </div>
-                    <div class="mt-4 text-sm text-gray-600">
-                        <p>Rank 1 is your most preferred title, Rank 5 is your least preferred.</p>
-                        <p>Drag to reorder your preferences (highest to lowest).</p>
-                    </div>
-                </div>
-
-                <div class="mb-6">
-                    <button id="add-custom-title-btn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
-                        Suggest Custom Title (Optional)
-                    </button>
-                    <div id="custom-title-section" class="hidden mt-4 bg-purple-50 rounded-lg p-4">
-                        <form id="custom-title-form">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-2">Custom Title *</label>
-                                    <input type="text" id="custom-title-input" class="w-full border rounded px-3 py-2" 
-                                           placeholder="Enter your proposed title">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-2">Preferred Supervisor *</label>
-                                    <select id="custom-supervisor-input" class="w-full border rounded px-3 py-2" required>
-                                        <option value="">Select a supervisor</option>
-                                        ${supervisorOptions}
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="flex justify-end space-x-2 mt-4">
-                                <button type="button" id="cancel-custom-title" class="px-4 py-2 border rounded hover:bg-gray-50">
-                                    Cancel
-                                </button>
-                                <button type="submit" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
-                                    Add Custom Title
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <div class="flex justify-between items-center">
-                    <div class="text-sm text-gray-600">
-                        ${settings.preferenceDeadline ? `
-                            <p>⏰ You can edit preferences until: <strong>${new Date(settings.preferenceDeadline).toLocaleString()}</strong></p>
-                        ` : 'No deadline set'}
-                    </div>
-                    <button id="submit-preferences-btn" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                            ${this.selectedPreferences?.length === 5 ? '' : 'disabled'}>
-                        ${existingPreferences ? 'Update Preferences' : 'Submit Preferences'}
-                    </button>
+                <div id="search-results-count" class="text-sm text-gray-600 mt-2 hidden">
+                    Found <span id="matches-count">0</span> titles matching your search
                 </div>
             </div>
-        `;
+
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-3">Available Titles</h3>
+                <div id="titles-accordion">
+                    <!-- Titles will be loaded here by renderTitlesBySupervisor -->
+                </div>
+                <div id="no-titles-message" class="text-center py-8 text-gray-500 hidden">
+                    <p>No titles found matching your search.</p>
+                    <p class="mt-2">Try different search terms or clear your search.</p>
+                </div>
+            </div>
+
+            <!-- Rest of the existing title selection HTML remains the same -->
+            <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                <h3 class="text-lg font-semibold mb-4">Your Selected Preferences</h3>
+                <div id="selected-preferences" class="space-y-3">
+                    ${this.renderSelectedPreferences(existingPreferences?.preferences || [])}
+                </div>
+                <div class="mt-4 text-sm text-gray-600">
+                    <p>Rank 1 is your most preferred title, Rank 5 is your least preferred.</p>
+                    <p>Drag to reorder your preferences (highest to lowest).</p>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <button id="add-custom-title-btn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+                    Suggest Custom Title (Optional)
+                </button>
+                <div id="custom-title-section" class="hidden mt-4 bg-purple-50 rounded-lg p-4">
+                    <form id="custom-title-form">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Custom Title *</label>
+                                <input type="text" id="custom-title-input" class="w-full border rounded px-3 py-2" 
+                                       placeholder="Enter your proposed title">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Preferred Supervisor *</label>
+                                <select id="custom-supervisor-input" class="w-full border rounded px-3 py-2" required>
+                                    <option value="">Select a supervisor</option>
+                                    ${supervisorOptions}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex justify-end space-x-2 mt-4">
+                            <button type="button" id="cancel-custom-title" class="px-4 py-2 border rounded hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button type="submit" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+                                Add Custom Title
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    ${systemSettings.preferenceDeadline ? `
+                        <p>⏰ You can edit preferences until: <strong>${new Date(systemSettings.preferenceDeadline).toLocaleString()}</strong></p>
+                    ` : 'No deadline set'}
+                </div>
+                <button id="submit-preferences-btn" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        ${this.selectedPreferences?.length === 5 ? '' : 'disabled'}>
+                    ${existingPreferences ? 'Update Preferences' : 'Submit Preferences'}
+                </button>
+            </div>
+        </div>
+    `;
 
             $('#student-content').html(html);
 
-            // Render titles by supervisor
+            // Render titles by supervisor - FIX: Use approvedTitles
             this.renderTitlesBySupervisor(this.allApprovedTitles, existingPreferences);
 
             // Initialize drag and drop for preferences
@@ -513,7 +549,12 @@ class StudentDashboard {
     //     }
     // }
     async loadSupervisors() {
-        return await this.apiCache.call('/api/users/supervisors');
+        try {
+            return await this.apiCache.call('/api/users/supervisors');
+        } catch (error) {
+            console.error('Error loading supervisors:', error);
+            return []; // Return empty array instead of throwing
+        }
     }
 
     renderSelectedPreferences(preferences) {
@@ -662,6 +703,18 @@ class StudentDashboard {
 
     async checkNotifications() {
         try {
+
+            // First check if allocations have been published
+            const settings = await this.apiCache.call('/api/system-settings', { forceRefresh: true }).catch(() => ({
+                allocationPublished: false
+            }));
+
+            // Only check notifications if allocations are published
+            if (!settings.allocationPublished) {
+                console.log('Allocations not published yet, skipping notifications');
+                return;
+            }
+
             const notifications = await $.ajax({
                 url: '/api/notifications/unread',
                 method: 'GET',
@@ -677,6 +730,13 @@ class StudentDashboard {
     }
 
     showNotificationAlert(notifications) {
+        const allocationNotifications = notifications.filter(notification =>
+            notification.type === 'allocation' ||
+            notification.message?.includes('allocated') ||
+            notification.title?.includes('Allocation')
+        );
+
+        if (allocationNotifications.length === 0) return;
         const notificationCount = notifications.length;
         const titleWord = notificationCount === 1 ? 'title' : 'titles';
 
@@ -684,21 +744,60 @@ class StudentDashboard {
             icon: 'info',
             title: 'Allocation Update!',
             html: `
-            <p>You have been allocated to ${notificationCount} project ${titleWord}.</p>
+            <p>Allocation Results Published! You have been allocated to ${notificationCount} project ${titleWord}.</p>
             <p class="mt-2 text-sm text-gray-600">Check "My Allocation" to view your assigned project and supervisor.</p>
         `,
             confirmButtonText: 'View My Allocation',
             showCancelButton: true,
-            cancelButtonText: 'Mark as Read',
-            allowOutsideClick: false
+            cancelButtonText: 'Dismiss',
+            allowOutsideClick: false,
+            backdrop: true,
+            customClass: {
+                popup: 'allocation-notification-popup'
+            }
         }).then((result) => {
             if (result.isConfirmed) {
                 this.loadMyAllocation();
             }
 
             // Mark all as read regardless of user choice
-            this.markAllNotificationsAsRead();
+            // this.markAllNotificationsAsRead();
+            this.markAllocationNotificationsAsRead(allocationNotifications);
+
         });
+    }
+
+    // Add this method to specifically mark allocation notifications as read
+    async markAllocationNotificationsAsRead(notifications) {
+        try {
+            // Mark specific allocation notifications as read
+            const allocationIds = notifications.map(n => n._id);
+            if (allocationIds.length > 0) {
+                await $.ajax({
+                    url: '/api/notifications/mark-read',
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    contentType: 'application/json',
+                    data: JSON.stringify({ notificationIds: allocationIds })
+                });
+            }
+        } catch (error) {
+            console.error('Error marking allocation notifications as read:', error);
+        }
+    }
+
+    // Also add this method to handle when allocations get published
+    async onAllocationsPublished() {
+        console.log('Allocations published - checking for notifications');
+
+        // Refresh the dashboard to show allocation cards
+        await this.loadDashboard();
+
+        // Check for notifications
+        await this.checkNotifications();
+
+        // Restart periodic checking
+        this.setupPeriodicNotificationCheck();
     }
 
     async markAllNotificationsAsRead() {
@@ -813,7 +912,7 @@ class StudentDashboard {
             await SweetAlert.success('Preferences submitted successfully!');
 
             // Invalidate cache for allocations and preferences
-            window.apiCache.invalidateRelatedCache('/api/preferences', 'POST');
+            window.apiCache.invalidateRelatedCache('/api/preferences', 'POST', { forceRefresh: true });
 
             setTimeout(() => {
                 this.loadMyAllocation();
@@ -825,62 +924,102 @@ class StudentDashboard {
 
 
     // Update the loadMyAllocation method to show custom title status
-async loadMyAllocation() {
-    try {
-        const [allocationResponse, settings, preferences] = await Promise.all([
-            this.apiCache.call('/api/allocations').catch(() => null),
-            this.apiCache.call('/api/system-settings').catch(() => ({ allocationCompleted: false })),
-            this.apiCache.call('/api/preferences').catch(() => null)
-        ]);
+    async loadMyAllocation() {
+        try {
+            const [allocationResponse, settings, preferences] = await Promise.all([
+                this.apiCache.call('/api/allocations', { forceRefresh: true }).catch(() => null),
+                this.apiCache.call('/api/system-settings', { forceRefresh: true }).catch(() => ({ allocationCompleted: false, allocationPublished: false })),
+                this.apiCache.call('/api/preferences', { forceRefresh: true }).catch(() => null)
+            ]);
 
-        // Handle the allocation response - it could be an array or a single object
-        let allocation = null;
-        if (Array.isArray(allocationResponse)) {
-            // If it's an array, take the first element (student should only have one allocation)
-            allocation = allocationResponse.length > 0 ? allocationResponse[0] : null;
-        } else {
-            // If it's already an object or null, use it directly
-            allocation = allocationResponse;
-        }
+            // Handle the allocation response - it could be an array or a single object
+            let allocation = null;
+            if (Array.isArray(allocationResponse)) {
+                // If it's an array, take the first element (student should only have one allocation)
+                allocation = allocationResponse.length > 0 ? allocationResponse[0] : null;
+            } else {
+                // If it's already an object or null, use it directly
+                allocation = allocationResponse;
+            }
 
-        let html = `
+            let html = `
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-2xl font-bold mb-6">My Project Allocation</h2>
         `;
 
-        // Check if allocation process has been completed
-        if (!settings.allocationCompleted) {
-            html += `
+            // ✅ Check if allocation results have been published
+            if (!settings.allocationPublished) {
+                html += `
             <div class="text-center py-8">
                 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 inline-block">
                     <svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     <p class="text-yellow-800 font-semibold">Allocation In Progress</p>
-                    <p class="mt-2 text-yellow-700">The project allocation process is currently running. Please check back later.</p>
+                    <p class="mt-2 text-yellow-700">The project allocation results have not been published yet. Please check back later.</p>
+                    ${settings.allocationCompleted ? `
+                        <p class="mt-2 text-sm text-yellow-600">The allocation process is complete. Results will be published soon.</p>
+                    ` : ''}
                 </div>
             </div>
-        `;
-        } else if (!allocation || !allocation.title) {
-            // Allocation completed but no allocation found for this student OR allocation exists but has no title
-            html += `
+            `;
+            } else if (!allocation || !allocation.title) {
+                // ✅ After publishing: No allocation found
+                html += `
             <div class="text-center py-8">
-                <div class="bg-red-50 border border-red-200 rounded-lg p-6 inline-block">
-                    <svg class="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 inline-block">
+                    <svg class="w-12 h-12 text-gray-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
                     </svg>
-                    <p class="text-red-800 font-semibold">No Allocation Found</p>
-                    <p class="mt-2 text-red-700">You were not allocated to any project title.</p>
-                    <p class="mt-2 text-sm text-red-600">Please contact the administrator for assistance.</p>
+                    <p class="text-gray-800 font-semibold">No Allocation Found</p>
+                    <p class="mt-2 text-gray-700">You were not allocated to any project title.</p>
+                    <p class="mt-2 text-sm text-gray-600">Please contact the administrator for assistance.</p>
                 </div>
             </div>
-        `;
-        } else {
-            // SUCCESS: Student has an allocation
-            const hasCustomTitle = preferences && preferences.customTitle;
-            const customTitleStatus = hasCustomTitle ? preferences.customTitle.status : null;
+            `;
 
-            html += `
+            } else {
+                // SUCCESS: Student has an allocation
+                const hasCustomTitle = preferences && preferences.customTitle;
+                const customTitleStatus = hasCustomTitle ? preferences.customTitle.status : null;
+
+                // NEW: Check if title is "To decide with supervisor"
+                const isToDecideTitle = allocation.title === 'To decide with supervisor';
+
+                // NEW: Determine styling based on title type
+                const mainContainerClass = isToDecideTitle
+                    ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200'
+                    : 'bg-gradient-to-r from-green-50 to-blue-50 border border-green-200';
+
+                const mainIconClass = isToDecideTitle
+                    ? 'bg-yellow-100 text-yellow-600'
+                    : 'bg-green-100 text-green-600';
+
+                const mainHeaderClass = isToDecideTitle
+                    ? 'text-yellow-800'
+                    : 'text-green-800';
+
+                const mainTextClass = isToDecideTitle
+                    ? 'text-yellow-600'
+                    : 'text-green-600';
+
+                const mainIconSvg = isToDecideTitle
+                    ? `<svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                   </svg>`
+                    : `<svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                   </svg>`;
+
+                const mainHeaderText = isToDecideTitle
+                    ? 'Project Discussion Required'
+                    : 'Project Allocated!';
+
+                const mainDescription = isToDecideTitle
+                    ? 'You need to discuss and decide on your project title with your supervisor'
+                    : 'Congratulations on your project assignment!';
+
+                html += `
             <div class="max-w-4xl mx-auto">
                 ${hasCustomTitle ? `
                 <div class="mb-6 p-4 border rounded-lg ${customTitleStatus === 'approved' ? 'bg-green-50 border-green-200' :
@@ -908,7 +1047,7 @@ async loadMyAllocation() {
                         </div>
                         ${customTitleStatus === 'approved' ? `
                             <div class="md:col-span-2 text-green-700">
-                                <strong>✓ Approved!</strong> You were allocated to your custom title.
+                                <strong>✓ Approved!</strong> You were allocated the title you proposed.
                             </div>
                         ` : ''}
                         ${customTitleStatus === 'rejected' ? `
@@ -919,22 +1058,20 @@ async loadMyAllocation() {
                         ` : ''}
                         ${customTitleStatus === 'pending' ? `
                             <div class="md:col-span-2 text-yellow-700">
-                                Your custom title is still pending admin approval. You were allocated based on your regular preferences.
+                                Your Proposed title is still pending admin approval. You were allocated based on your top 5 regular preferences.
                             </div>
                         ` : ''}
                     </div>
                 </div>
                 ` : ''}
 
-                <div class="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-6">
+                <div class="${mainContainerClass} rounded-lg p-6">
                     <div class="text-center mb-6">
-                        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
+                        <div class="w-16 h-16 ${mainIconClass} rounded-full flex items-center justify-center mx-auto mb-4">
+                            ${mainIconSvg}
                         </div>
-                        <h3 class="text-xl font-semibold text-green-800">Project Allocated!</h3>
-                        <p class="text-green-600 mt-1">Congratulations on your project assignment</p>
+                        <h3 class="text-xl font-semibold ${mainHeaderClass}">${mainHeaderText}</h3>
+                        <p class="${mainTextClass} mt-1">${mainDescription}</p>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -947,6 +1084,14 @@ async loadMyAllocation() {
                                     <span class="font-semibold">Project Title</span>
                                 </div>
                                 <p class="text-lg text-gray-800 pl-7">${allocation.title}${allocation.isCustomTitle ? ' *' : ''}</p>
+                                ${isToDecideTitle ? `
+                                    <p class="text-sm text-yellow-600 mt-1 pl-7 flex items-center">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        You'll discuss and finalize this with your supervisor
+                                    </p>
+                                ` : ''}
                             </div>
 
                             <div class="bg-white rounded-lg p-4 border">
@@ -979,15 +1124,16 @@ async loadMyAllocation() {
 
                             <div class="bg-white rounded-lg p-4 border">
                                 <div class="flex items-center mb-2">
-                                    <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 ${isToDecideTitle ? 'text-yellow-500' : 'text-green-500'} mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                     </svg>
                                     <span class="font-semibold">Allocation Details</span>
                                 </div>
                                 <div class="space-y-2 pl-7">
-                                    <p><strong>Type:</strong> ${allocation.isCustomTitle ? 'Custom Title' : 'Title from Project List'}</p>
+                                    <p><strong>Type:</strong> ${allocation.isCustomTitle ? 'Custom Title' : (isToDecideTitle ? 'Title to be decided' : 'Title from Project List')}</p>
                                     <p><strong>Allocated:</strong> ${allocation.allocatedAt ? new Date(allocation.allocatedAt).toLocaleDateString() : 'N/A'}</p>
                                     ${allocation.preferenceRank ? `<p><strong>Preference Rank:</strong> ${allocation.preferenceRank}</p>` : ''}
+                                    ${isToDecideTitle ? `<p><strong>Status:</strong> <span class="text-yellow-600 font-semibold">Discussion Required</span></p>` : ''}
                                 </div>
                             </div>
                         </div>
@@ -1004,7 +1150,18 @@ async loadMyAllocation() {
                         </div>
                     ` : ''}
 
-                    ${allocation.needsSupervisor ? `
+                    ${isToDecideTitle ? `
+                        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                            <p class="text-sm text-yellow-800 flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"></path>
+                                </svg>
+                                <strong>Next Steps:</strong> Contact your supervisor to discuss and decide on your project title. Once decided, the title will be updated in the system.
+                            </p>
+                        </div>
+                    ` : ''}
+
+                    ${allocation.needsSupervisor && !isToDecideTitle ? `
                         <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
                             <p class="text-sm text-yellow-800 flex items-center">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1017,13 +1174,15 @@ async loadMyAllocation() {
                 </div>
             </div>
         `;
-        }
+            }
 
-        html += `</div>`;
-        $('#student-content').html(html);
-    } catch (error) {
-        console.error('Error loading allocation:', error);
-        $('#student-content').html(`
+
+
+            html += `</div>`;
+            $('#student-content').html(html);
+        } catch (error) {
+            console.error('Error loading allocation:', error);
+            $('#student-content').html(`
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-2xl font-bold mb-6">My Allocation</h2>
             <div class="text-center py-8 text-red-500">
@@ -1031,8 +1190,9 @@ async loadMyAllocation() {
             </div>
         </div>
         `);
+        }
     }
-}
+
 
     showSuccess(message) {
         const successHtml = `

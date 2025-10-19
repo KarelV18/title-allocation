@@ -47,3 +47,18 @@
     border-color: #3b82f6;
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
 }
+
+
+/* Add this to your CSS file */
+.allocation-notification-popup {
+    max-width: 500px !important;
+}
+
+.allocation-notification-popup .swal2-html-container {
+    text-align: left !important;
+}
+
+.allocation-notification-popup ul {
+    margin-top: 8px;
+    margin-bottom: 0;
+}
